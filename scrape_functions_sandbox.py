@@ -3,9 +3,13 @@
 # Start of developement 22-Jan-2019
 
 # For future developement: functions Bypass_Recaptcha(pageurl, sitekey),
-# whole_parser(link), porch_parser (each_zip)
+# whole_parser(link), porch_parser (each_zip).
+# Temporary solution with recaptcha is implemented with module
+# pyautogui (this will most likely not work on other platforms/devices)
+# in meantime collecting pictures from recaptcha for further ML.
 
-# Version 1.7 from 13-Jun-2019
+# Version 1.7.1 from 31-Jun-2019
+
 
 from threading import Thread
 from bs4 import BeautifulSoup
@@ -24,7 +28,9 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchElementException   
+from selenium.common.exceptions import NoSuchElementException
+import pyautogui
+import autopy
 
 
 
@@ -405,7 +411,7 @@ def whole_parser(link):
 
 
 
-def homeflock_parser (link):
+def homeflock_parser (link, i):
 # Crawler for website homeflock.com
 
 	options = webdriver.ChromeOptions()
@@ -420,7 +426,8 @@ def homeflock_parser (link):
 	except:
 		driver.get(link)
 	soup = BeautifulSoup(driver.page_source, 'lxml')
-	try:
+	#try:
+	if len(soup.find_all('a'))>0:
 		for elem in soup.find_all('a'):
 			try:
 				url = elem.get('href').split('/')[1]
@@ -429,26 +436,28 @@ def homeflock_parser (link):
 					print(url)
 					frame = frame.append({'Platform': 'Homeflock', 'LinkOnPlatform': url}, ignore_index = True)
 			except Exception:
-				#ua = UserAgent(cache=False)
-				#userAgent = ua.random
-				options = webdriver.ChromeOptions()
-				#options.add_argument(f'user-agent={userAgent}')	
-				options.add_argument('headless')
-				driver = webdriver.Chrome(executable_path='./chromedriver',options=options)
-				driver.get(link)
-	except Exception:
-			sitekey = soup.find(class_ = 'g-recaptcha').attrs.get('data-sitekey')
-			Bypass_Recaptcha(link, sitekey)
-			driver.quit()
-	finally:
-		driver.quit()
-	frame.to_csv('/home/val/homeflock_profiles.csv', mode = 'a', header = False)
+				pass
+
+	else:
+		if soup.title.text == 'Verify real user':
+			print('recaptcha_slasher is called out of the loop')
+			recaptcha_slasher(i)
+
+	#except Exception:
+	#	print('check')
+	#	pass
+
+	#finally:
+	#	driver.quit()
+	frame.to_csv('./homeflock_profiles.csv', mode = 'a', header = False)
 	print('done with link', link)
+	driver.quit()
+
 	#driver.quit()
 	#sleep(305)
 
 
-def getDataHomeflock(link):
+def getDataHomeflock(link, i):
 # Scraper for the website 'https://homeflock.com'
 # target: information from business profile
 
@@ -462,11 +471,12 @@ def getDataHomeflock(link):
 		while True:
 			driver.get(link)
 			soup = BeautifulSoup(driver.page_source, 'lxml')
-			#info_point = soup.find_all(class_ = 'col-sm-7 col-md-5 gray-text')
-			#info_point = soup.find_all(class_ = 'col-sm-7 col-md-5 gray-text')
-			#info = soup.find_all(class_ = 'col-sm-24')
-			address = soup.find(class_ = 'profile-city').text
-			name = soup.find(itemprop='name').text.strip()
+			try:
+				address = soup.find(class_ = 'profile-city').text
+				name = soup.find(itemprop='name').text.strip()
+			except Exception:
+				recaptcha_slasher(i)
+				continue
 
 			for each in soup.find_all(class_ = 'row text'):
 				data[str(each.find(class_ = 'col-sm-7 col-md-5 gray-text').text.strip())] = each.find(class_="col-sm-17 col-md-19").text.strip()
@@ -474,9 +484,6 @@ def getDataHomeflock(link):
 			frame['Platform'] = 'Homeflock'
 			frame['LinkOnPlatform'] = link
 			frame['Name'] = name
-				#frame['City'] = address.replace('\n', '').split(',')[1]
-				#state = [letter for letter in address.replace('\n', '').split(',')[2] if letter.isalpha()]
-				#frame['State'] = ''.join(state)
 			try:
 					frame['City'] = address.replace('\n', '').split(',')[1]
 			except Exception as e:
@@ -515,14 +522,14 @@ def getDataHomeflock(link):
 					print(e)
 
 			new_frame = new_frame.append(frame, ignore_index = True)
-			new_frame.to_csv('/home/val/test-homeflock-1.csv', mode = 'a', header = False)
+			new_frame.to_csv('./test-homeflock-1.csv', mode = 'a', header = False)
 			print(new_frame)
 			break
-				#sleep(305)
-
+	
 	finally:
 		if driver:
 			driver.quit()
+
 
 
 
@@ -612,6 +619,20 @@ def getDataHA(link):
 		driver.quit()
 
 	return new_frame
+
+def recaptcha_slasher(i):
+	browser = pyautogui.position(x=800, y=300)
+	pyautogui.leftClick(browser)
+	pyautogui.hotkey('f5')
+	sleep(3)
+	checkbox = pyautogui.position(x=516, y=206)
+	pyautogui.leftClick(checkbox)
+	sleep(3)
+	image = autopy.bitmap.capture_screen()
+	path = '/home/val/google_recaptcha_set/image_{}.png'.format(i)
+	image.save(path)
+	submit = pyautogui.position(x=518, y=285)
+	pyautogui.leftClick(submit)
 
 
 
