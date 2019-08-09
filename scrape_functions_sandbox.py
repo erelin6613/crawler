@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # Developed by Valentyna Fihurska in collaboration with
 # Olha Babich for wiserbrand.com
 # Start of developement 22-Jan-2019
@@ -8,9 +9,9 @@
 # pyautogui (this will most likely not work on other platforms/devices)
 # in meantime collecting pictures from recaptcha for further ML.
 
-# Version 1.7.1 from 31-Jun-2019
+# Version 1.7.2 from 09-Aug-2019
 
-
+import requests
 from threading import Thread
 from bs4 import BeautifulSoup
 import pandas as pd
@@ -31,6 +32,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
 import pyautogui
 import autopy
+import pickle
 
 
 
@@ -449,6 +451,7 @@ def homeflock_parser (link, i):
 
 	#finally:
 	#	driver.quit()
+	frame = frame.drop_duplicates(subset = 'LinkOnPlatform', keep = 'last')
 	frame.to_csv('./homeflock_profiles.csv', mode = 'a', header = False)
 	print('done with link', link)
 	driver.quit()
@@ -518,11 +521,17 @@ def getDataHomeflock(link, i):
 			try:
 					frame['Type'] = data['Type:']
 			except Exception as e:
-					frame['Status'] = None
+					frame['Type'] = None
+					print(e)
+
+			try:
+					frame['Overview'] = address
+			except Exception as e:
+					frame['Overview'] = None
 					print(e)
 
 			new_frame = new_frame.append(frame, ignore_index = True)
-			new_frame.to_csv('./test-homeflock-1.csv', mode = 'a', header = False)
+			new_frame.to_csv('./homeflock-data.csv', mode = 'a', header = False)
 			print(new_frame)
 			break
 	
@@ -629,12 +638,119 @@ def recaptcha_slasher(i):
 	pyautogui.leftClick(checkbox)
 	sleep(3)
 	image = autopy.bitmap.capture_screen()
-	path = '/home/val/google_recaptcha_set/image_{}.png'.format(i)
+	path = '/home/val/google_recaptcha_set/captured_{}.png'.format(i)
 	image.save(path)
 	submit = pyautogui.position(x=518, y=285)
 	pyautogui.leftClick(submit)
 
 
+
+
+def trustpilot_cats(link):
+	categories = {}
+	r = requests.get(link)
+	soup = BeautifulSoup(r.text, 'lxml')
+	for each in soup.find_all(class_='category-object'):
+		subcats = []
+		#print(each)
+		for sub_cat in each.findChildren():
+			#each.text.strip()+':'+sub_cat.text.strip())
+			subcats.append(sub_cat.text.strip())
+		categories[str(each.text.strip())] = subcats
+
+	print(categories)
+	pickle_out = open('trustpilot_cats_pickle.pickle', 'wb')
+	pickle.dump(obj=categories, file=pickle_out)
+	pickle_out.close()
+	trustpilot_categories = open('trustpilot_categories.csv', 'a')
+	for each in categories.keys():
+		trustpilot_categories.write(each.strip()+'\n')
+		for sub_cat in each:
+			trustpilot_categories.write(sub_cat.strip()+'\n')
+
+	trustpilot_categories.close()
+	pickle_out.close()
+
+def trustpilot_parser(link):
+	domain = 'https://www.trustpilot.com'
+	frame = pd.DataFrame(columns=['CategoryLink', 'ProfileLink', 'Website'])
+	dict_biz = {}
+	#categories = {}
+	options = webdriver.ChromeOptions()
+	options.add_argument('headless')
+	driver = webdriver.Chrome(executable_path = './chromedriver', options = options)
+	driver.get(link)
+	#print(str(r.text.find('category-business-card card')))
+	soup = BeautifulSoup(driver.page_source, 'lxml')
+	for each in soup.find_all(class_='category-business-card card'):
+		#print(each.get('href'))
+		dict_biz['CategoryLink'] = link
+		dict_biz['ProfileLink'] = domain+each.get('href')
+		print(domain+each.get('href'))
+		try:
+			dict_biz['Website'] = each.get('href').split('/')[-1].split('?')[0]
+		except Exception:
+			dict_biz['Website'] = each.get('href').split('/')[-1]
+		print(dict_biz)
+		frame = frame.append(dict_biz, ignore_index=True)
+
+	frame.to_csv('trustpilot_links.csv', mode='a', header=False)
+	driver.quit()
+
+
+def trustpilot_scraper(link='https://www.trustpilot.com/review/theteaspot.com'):
+	#domain = 'https://www.trustpilot.com'
+	#frame = pd.DataFrame(columns=['CategoryLink', 'ProfileLink', 'Website'])
+	#dict_biz = {}
+	#categories = {}
+	options = webdriver.ChromeOptions()
+	# options.add_argument('headless')
+	driver = webdriver.Chrome(executable_path = './chromedriver', options = options)
+	driver.get(link)
+	sleep(5)
+	SCROLL_PAUSE_TIME = 0.5
+
+# Get scroll height
+	
+	i=0
+	while True:
+		
+	    # Scroll down to bottom
+	    driver.execute_script("window.scrollTo(480*{}, ({}+1)*860);".format(i,i))
+
+	    # Wait to load page
+	    sleep(SCROLL_PAUSE_TIME)
+
+	    # Calculate new scroll height and compare with last scroll height
+	    
+	    if i == 10:
+	        break
+	    i+= 1
+	#print(str(r.text.find('category-business-card card')))
+	soup = BeautifulSoup(driver.page_source, 'lxml')
+	name = soup.find_all(class_='multi-size-header')[0].text.split('\n')[1]
+	reviews_number = soup.find_all(class_='header--inline')[0].text.split('\n')[1].strip()
+	reviews_score = soup.find_all(class_='header--inline')[0].text.split('\n')[-1].strip()
+	profile_site = soup.find_all(class_='badge-card__title')[0].text.strip()
+	claim = soup.find_all(class_='badge-card__title')[1].text.strip()
+	#print(soup.find_all('trustscore'))
+	with open('blah.txt', 'w') as f:
+		f.write(soup.prettify())
+	print(soup.find_all(class_='contact-point__details'))
+	print(name)
+	#	#print(each.get('href'))
+	#	dict_biz['CategoryLink'] = link
+	#	dict_biz['ProfileLink'] = domain+each.get('href')
+	#	print(domain+each.get('href'))
+	#	try:
+	#		dict_biz['Website'] = each.get('href').split('/')[-1].split('?')[0]
+	#	except Exception:
+	#		dict_biz['Website'] = each.get('href').split('/')[-1]
+	#	print(dict_biz)
+	#	frame = frame.append(dict_biz, ignore_index=True)
+
+	#frame.to_csv('trustpilot_links.csv', mode='a', header=False)
+	# driver.quit()
 
 
 
