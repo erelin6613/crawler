@@ -1,0 +1,48 @@
+import pandas as pd
+
+def url_validator(file_name, column_name):
+	frame = pd.read_csv(file_name)
+	for index, row in frame.iterrows():
+		if " " in str(row[column_name]) or "<" in str(row[column_name]) or ">" in str(row[column_name]) or  "'" in str(row[column_name]) or "#" in str(row[column_name]) or "%" in str(row[column_name]) or "{" in str(row[column_name]) or "}" in str(row[column_name]) or  "|" in str(row[column_name]) or "\\" in str(row[column_name]) or "^" in str(row[column_name]) or "~" in str(row[column_name]) or "[" in str(row[column_name]) or "]" in str(row[column_name]) or  "`" in str(row[column_name]):
+			frame.drop(row, inplace=True)
+
+	return frame
+
+
+def name_validator(file_name, column_name):
+
+	frame = pd.read_csv(file_name)
+	for index, row in frame.iterrows():
+		if "&" in str(row[column_name]):
+			row[column_name] = str(row[column_name]).replace("&", "and")
+		if "." in str(row[column_name]):
+			row[column_name] = str(row[column_name]).replace(".", " ")
+		if "-" in str(row[column_name]):
+			row[column_name] = str(row[column_name]).replace("-", "")
+		if "'" in str(row[column_name]):
+			row[column_name] = str(row[column_name]).replace("'", "")
+		if "+" in str(row[column_name]):
+			try:
+				row[column_name] = str(row[column_name]).replace("+ ", "")
+			except Exception:
+				try:
+					row[column_name] = str(row[column_name]).replace(" +", "")
+				except Exception:
+					row[column_name] = str(row[column_name]).replace("+", " ")
+		if "," in str(row[column_name]):
+			try:
+				row[column_name] = str(row[column_name]).replace(", ", "")
+			except Exception:
+				try:
+					row[column_name] = str(row[column_name]).replace(" ,", "")
+				except Exception:
+					row[column_name] = str(row[column_name]).replace(",", " ")
+
+		if "#" in str(row[column_name]):
+			row[column_name] = str(row[column_name]).replace("#", "No ")
+		if "(" in str(row[column_name]):
+			row[column_name] = str(row[column_name]).replace("(", "")
+		if ")" in str(row[column_name]):
+			row[column_name] = str(row[column_name]).replace(")", "")
+		if "/" in str(row[column_name]):
+			row[column_name] = str(row[column_name]).replace("/", " ")
