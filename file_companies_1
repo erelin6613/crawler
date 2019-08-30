@@ -1,0 +1,70 @@
+#from threading import Thread
+from bs4 import BeautifulSoup
+import pandas as pd
+#import os
+#import sys
+from selenium import webdriver
+#from selenium.webdriver.common.proxy import *
+from time import gmtime, strftime, sleep
+#import sqlite3
+#from queue import Queue
+import re
+import requests
+from validator import url_validator
+
+#sites_frame = pd.read_csv('file_companies_sites (another copy).csv')
+
+#print(sites_frame[sites_frame.loc['Website_to_scrape'].endswith('.gov') == True])
+
+i=0
+
+form_keywords = ['e-signature', 'signature', 'email signature', 'fax  signature', 'document management',
+					'e-signatures', 'signatures', 'email signatures', 'fax  signatures']
+
+
+options = webdriver.ChromeOptions()
+options.add_argument('headless')
+driver = webdriver.Chrome(executable_path = './chromedriver', options = options)
+
+sites_frame = url_validator('file_companies_sites (another copy).csv', 'website_to_scrape')
+
+for index, row in sites_frame.iterrows():
+	if str(row['website_to_scrape']).endswith('.gov'):
+		try:
+			driver.get(row['website_to_scrape'])
+			print(row['website_to_scrape'])
+		except Exception:
+			print('invalid url:', row['website_to_scrape'])
+			continue
+		soup = BeautifulSoup(driver.page_source, 'lxml')
+		if len(soup(text='complaint'))>0 or len(soup(text='file'))>0 or len(soup(text='Complaint'))>0 or len(soup(text='File'))>0 or len(soup(text='Consumer Protection'))>0 or len(soup(text='Consumer protection'))>0 or len(soup(text='consumer protection'))>0 or len(soup(text='File a complaint'))>0 or len(soup(text='File a Complaint'))>0 or len(soup(text='File complaint'))>0 or len(soup(text='File Complaint'))>0:
+			#driver.get(row['Website_to_scrape'])
+			#r = requests.get(row['Website_to_scrape'])
+			#print(r.head, '\n')
+			#print(row['website_to_scrape'])
+			i+=1
+			sleep(5)
+			url = row['website_to_scrape']
+			print(url)
+			title = soup.find('title').text
+			print(title)
+			for each in soup.find_all('meta'):
+				if each.get('name') == 'description':
+					description = each.get('content')
+				if each.get('name') == 'title':
+					meta_title = each.get('content')
+				for each in soup(text='complaint'):
+					print(each)
+			print('----------')
+			with open('general_attorneys.csv', 'a') as file:
+				file.write(url+'\n')
+		else:
+			print('doesn`t look like a target site')
+
+		with open('all_gov_sites.csv', 'a') as f:
+			f.write(row['website_to_scrape'])
+
+print('total:', i)
+
+
+
