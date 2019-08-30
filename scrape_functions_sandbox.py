@@ -8,8 +8,10 @@
 # Temporary solution with recaptcha is implemented with module
 # pyautogui (this will most likely not work on other platforms/devices)
 # in meantime collecting pictures from recaptcha for further ML.
+# Added functions for Pissed Consumer task (governmental oragnisations which with one can
+# file a complain officially)
 
-# Version 1.7.2 from 09-Aug-2019
+# Version 1.7.3 from 30-Aug-2019
 
 import requests
 from threading import Thread
@@ -35,6 +37,19 @@ import autopy
 import pickle
 
 
+abbrs = { 'Alaska':	'AK', 'Alabama': 'AL', 'Arkansas': 'AR', 'Arizona': 'AZ', 'California': 'CA', 
+			'Colorado': 'CO', 'Connecticut': 'CT', 'District of Columbia': 'DC', 'Delaware': 'DE', 
+			'Florida': 'FL', 'Georgia': 'GA', 'Iowa': 'IA', 'Idaho':	'ID', 
+			'Illinois': 'IL', 'Indiana': 'IN', 'Kansas': 'KS', 'Kentucky': 'KY', 
+			'Louisiana': 'LA', 'Massachusetts': 'MA', 'Maryland':	'MD', 'Maine': 'ME', 
+			'Michigan': 'MI', 'Minnesota': 'MN', 'Missouri': 'MO', 'Mississippi': 'MS',
+			'Montana': 'MT', 'North Carolina': 'NC', 'North Dakota': 'ND', 'Nebraska': 'NE', 
+			'New Hampshire': 'NH', 'New Jersey': 'NJ', 'New Mexico': 'NM', 'Nevada': 'NV', 
+			'New York': 'NY', 'Ohio': 'OH', 'Oklahoma': 'OK', 'Oregon': 'OR',
+			'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC', 'South Dakota': 'SD', 
+			'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Virginia': 'VA', 
+			'Vermont': 'VT', 'Washington': 'WA', 'Wisconsin': 'WI', 'West Virginia': 'WV',
+			'Wyoming': 'WY'}
 
 
 
@@ -633,10 +648,10 @@ def recaptcha_slasher(i):
 	browser = pyautogui.position(x=800, y=300)
 	pyautogui.leftClick(browser)
 	pyautogui.hotkey('f5')
-	sleep(3)
+	sleep(5)
 	checkbox = pyautogui.position(x=516, y=206)
 	pyautogui.leftClick(checkbox)
-	sleep(3)
+	sleep(5)
 	image = autopy.bitmap.capture_screen()
 	path = '/home/val/google_recaptcha_set/captured_{}.png'.format(i)
 	image.save(path)
@@ -751,6 +766,55 @@ def trustpilot_scraper(link='https://www.trustpilot.com/review/theteaspot.com'):
 
 	#frame.to_csv('trustpilot_links.csv', mode='a', header=False)
 	# driver.quit()
+
+def get_domain_name(link):
+    #link = 'www.homeadvisor.com'
+    try:
+        link.split('.')
+        if link.startswith('http') or link.startswith('https'):
+            if 'www' not in link.split('/')[2]:
+                return link.split('/')[2]
+            else:
+                return link.split('/')[2].split('.')[1]+'.'+link.split('/')[2].split('.')[2]
+        elif link.startswith('www'):
+            try:
+                return link.split('/')[0].split('.')[1]+'.'+link.split('/')[0].split('.')[2]
+            except Exception:
+                return link.split('.')[1]+'.'+link.split('.')[2]
+        else:
+            return link
+    except ValueError as v:
+        print('Invalid url, ', v)
+
+
+
+def usa_gov_parser(file):
+	base = open(file, 'r')
+	base_urls = [each.split('\n')[0] for each in base.readlines()]
+	base_urls = [get_domain_name(url) for url in base_urls]
+	base.close()
+	url = 'https://www.usa.gov/state-consumer/'
+	states = [key.lower() for key in abbrs.keys()]
+	options = webdriver.ChromeOptions()
+	options.add_argument('headless')
+	driver = webdriver.Chrome(executable_path = './chromedriver', options = options)
+	#print(states)
+	for state in states:
+		link = url+state
+		#driver.get(link)
+		r = requests.get(link)
+		soup = BeautifulSoup(r.text, 'lxml')
+		for each in soup.find_all('a'):
+			if 'general attorney' in each.text.lower() or 'attorney general' in each.text.lower() or 'consumer protection' in each.text.lower():
+				if each.get('href').startswith('http') or each.get('href').startswith('https') or each.get('href').startswith('www'):
+					if get_domain_name(each.get('href')) in base_urls:
+						continue
+				else:
+					with open(file, 'a') as f:
+						f.write(each.get('href'))
+						print('New url found:', each.get('href'))
+
+		return
 
 
 
