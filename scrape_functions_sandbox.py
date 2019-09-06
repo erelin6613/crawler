@@ -10,8 +10,10 @@
 # in meantime collecting pictures from recaptcha for further ML.
 # Added functions for Pissed Consumer task (governmental oragnisations which with one can
 # file a complain officially)
+# Added task-specific functions to parse and scrape data from
+# multiple website (functions usa_gov_scraping, usa_gov_parser etc)
 
-# Version 1.7.3 from 30-Aug-2019
+# Version 1.7.4 from 06-Sep-2019
 
 import requests
 from threading import Thread
@@ -35,6 +37,8 @@ from selenium.common.exceptions import NoSuchElementException
 import pyautogui
 import autopy
 import pickle
+from validator import url_validator
+from commonregex import CommonRegex
 
 
 abbrs = { 'Alaska':	'AK', 'Alabama': 'AL', 'Arkansas': 'AR', 'Arizona': 'AZ', 'California': 'CA', 
@@ -50,6 +54,49 @@ abbrs = { 'Alaska':	'AK', 'Alabama': 'AL', 'Arkansas': 'AR', 'Arizona': 'AZ', 'C
 			'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Virginia': 'VA', 
 			'Vermont': 'VT', 'Washington': 'WA', 'Wisconsin': 'WI', 'West Virginia': 'WV',
 			'Wyoming': 'WY'}
+
+cities = ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix','Philadelphia', 'San Antonio', 'San Diego', 
+			'Dallas', 'San Jose',  'Austin', 'Jacksonville', 'Fort Worth', 'Columbus', 'San Francisco', 'Charlotte', 
+			'Indianapolis', 'Seattle', 'Denver', 'Washington', 'Boston', 'El Paso', 'Detroit', 'Nashville', 
+			'Portland', 'Memphis', 'Oklahoma City', 'Las Vegas', 'Louisville', 'Baltimore', 'Milwaukee', 
+			'Albuquerque', 'Tucson', 'Fresno', 'Mesa', 'Sacramento', 'Atlanta', 'Kansas City', 'Colorado Springs', 
+			'Miami', 'Raleigh', 'Omaha', 'Long Beach', 'Virginia Beach', 'Oakland', 'Minneapolis', 'Tulsa', 
+			'Arlington', 'Tampa', 'New Orleans', 'Wichita', 'Cleveland', 'Bakersfield', 'Aurora', 'Anaheim', 
+			'Honolulu', 'Santa Ana', 'Riverside', 'Corpus Christi', 'Lexington', 'Stockton', 'Henderson', 
+			'Saint Paul', 'St. Louis', 'Cincinnati', 'Pittsburgh', 'Greensboro', 'Anchorage', 'Plano', 'Lincoln', 
+			'Orlando', 'Irvine', 'Newark', 'Toledo', 'Durham', 'Chula Vista', 'Fort Wayne', 'Jersey City',
+			'St. Petersburg', 'Laredo', 'Madison', 'Chandler', 'Buffalo', 'Lubbock', 'Scottsdale', 'Reno', 
+			'Glendale', 'Gilbert', 'Winston–Salem', 'North Las Vegas', 'Norfolk', 'Chesapeake', 'Garland', 'Irving', 
+			'Hialeah', 'Fremont', 'Boise', 'Richmond', 'Baton Rouge', 'Spokane', 'Des Moines', 'Tacoma', 
+			'San Bernardino', 'Modesto', 'Fontana', 'Santa Clarita', 'Birmingham', 'Oxnard', 'Fayetteville', 
+			'Moreno Valley', 'Rochester', 'Glendale', 'Huntington Beach', 'Salt Lake City', 'Grand Rapids', 
+			'Amarillo', 'Yonkers', 'Aurora', 'Montgomery', 'Akron', 'Little Rock', 'Huntsville', 'Augusta', 
+			'Port St. Lucie', 'Grand Prairie', 'Columbus', 'Tallahassee', 'Overland Park', 'Tempe', 'McKinney', 
+			'Cape Coral', 'Shreveport', 'Frisco', 'Knoxville', 'Worcester', 'Brownsville', 'Vancouver', 
+			'Fort Lauderdale', 'Sioux Falls', 'Ontario', 'Chattanooga', 'Providence', 'Newport News', 
+			'Rancho Cucamonga', 'Santa Rosa', 'Oceanside', 'Salem', 'Elk Grove', 'Garden Grove', 'Pembroke Pines', 
+			'Eugene', 'Oregon', 'Corona', 'Cary', 'Springfield','Fort Collins','Jackson','Alexandria', 'Hayward',
+			'Lancaster', 'Lakewood', 'Clarksville', 'Palmdale', 'Salinas', 'Springfield', 'Hollywood', 'Pasadena', 
+			'Sunnyvale', 'Macon', 'Kansas City', 'Pomona', 'Escondido', 'Killeen', 'Naperville', 'Joliet', 
+			'Bellevue', 'Rockford', 'Savannah', 'Paterson', 'Torrance', 'Bridgeport', 'McAllen', 'Mesquite', 
+			'Syracuse', 'Midland', 'Pasadena', 'Murfreesboro', 'Miramar', 'Dayton', 'Fullerton', 'Olathe', 
+			'Orange', 'Thornton', 'Roseville', 'Denton', 'Waco', 'Surprise', 'Carrollton', 'West Valley City', 
+			'Charleston', 'Warren', 'Hampton', 'Gainesville', 'Visalia', 'Coral Springs',  'Columbia', 
+			'Cedar Rapids', 'Sterling Heights', 'New Haven', 'Stamford', 'Concord', 'Kent', 'Santa Clara', 
+			'Elizabeth', 'Round Rock', 'Thousand Oaks', 'Lafayette', 'Athens', 'Topeka', 'Simi Valley', 'Fargo', 
+			'Norman', 'Columbia', 'Abilene', 'Wilmington', 'Hartford', 'Victorville', 'Pearland', 'Vallejo', 
+			'Ann Arbor', 'Berkeley', 'Allentown', 'Richardson', 'Odessa', 'Arvada', 'Cambridge', 'Sugar Land', 
+			'Beaumont', 'Lansing', 'Evansville', 'Rochester', 'Independence', 'Fairfield', 'Provo', 'Clearwater', 
+			'College Station', 'West Jordan', 'Carlsbad', 'El Monte', 'Murrieta', 'Temecula', 'Springfield', 
+			'Palm Bay', 'Costa Mesa', 'Westminster', 'North Charleston', 'Miami Gardens', 'Manchester', 'High Point', 
+			'Downey', 'Clovis', 'Pompano Beach', 'Pueblo', 'Elgin', 'Lowell', 'Antioch', 'West Palm Beach', 'Peoria', 
+			'Everett', 'Ventura', 'Centennial', 'Lakeland', 'Gresham', 'Richmond', 'Billings', 'Inglewood', 
+			'Broken Arrow', 'Sandy Springs', 'Jurupa Valley', 'Hillsboro', 'Waterbury', 'Santa Maria', 'Boulder', 
+			'Greeley', 'Daly City', 'Meridian', 'Lewisville', 'Davie', 'West Covina', 'League City', 'Tyler', 
+			'Norwalk', 'San Mateo', 'Green Bay', 'Wichita Falls', 'Sparks', 'Lakewood', 'Burbank', 'Rialto', 'Allen', 
+			'El Cajon', 'Las Cruces', 'Renton', 'Davenport', 'South Bend', 'Vista', 'Tuscaloosa', 'Clinton', 'Edison', 
+			'Woodbridge', 'San Angelo', 'Kenosha', 'Vacaville']
+
 
 
 
@@ -789,6 +836,7 @@ def get_domain_name(link):
 
 
 def usa_gov_parser(file):
+
 	base = open(file, 'r')
 	base_urls = [each.split('\n')[0] for each in base.readlines()]
 	base_urls = [get_domain_name(url) for url in base_urls]
@@ -807,14 +855,314 @@ def usa_gov_parser(file):
 		for each in soup.find_all('a'):
 			if 'general attorney' in each.text.lower() or 'attorney general' in each.text.lower() or 'consumer protection' in each.text.lower():
 				if each.get('href').startswith('http') or each.get('href').startswith('https') or each.get('href').startswith('www'):
-					if get_domain_name(each.get('href')) in base_urls:
-						continue
-				else:
-					with open(file, 'a') as f:
-						f.write(each.get('href'))
-						print('New url found:', each.get('href'))
+					#print(each.get('href'))
+					with open(file+'_attorneys', 'a') as f:
+						f.write(each.get('href')+'\n')
+						print(each.get('href'))
+					#if get_domain_name(each.get('href')) in base_urls or each.get('href').startswith('/') or each.get('href').startswith('#'):
+					#	continue
 
+
+
+
+
+
+
+
+def usa_gov_scraper(link):
+
+	frame = pd.DataFrame(columns=['title', 'link', 'name', 'meta_title', 'meta_description', 
+									'abbreviation', 'city', 'form_link', 'phone', 'email', 'address'])
+
+	#i = 0
+
+	options = webdriver.ChromeOptions()
+	options.add_argument('headless')
+	driver = webdriver.Chrome(executable_path = './chromedriver', options = options)
+
+	form_keywords = ['e-signature', 'signature', 'email signature', 'fax  signature', 'document management',
+					'e-signatures', 'signatures', 'email signatures', 'fax  signatures']
+
+	contacts_keywords = ['contacts', 'contact', 'phone', 
+						'Contacts', 'Contact', 'Phone']
+
+	company_dict = {}
+
+	try:
+		driver.get(link)
+	except Exception as e:
+		driver.get('http://'+link)
+		#print('***Exception: ', link, e)
 		return
+
+	company_dict['link'] = link
+
+	soup = BeautifulSoup(driver.page_source, 'lxml')
+	#print(type(driver.page_source))
+	try:
+		if soup.find('title').text.split('|')[0] > soup.find('title').text.split('|')[1]:
+			company_dict['name'] = soup.find('title').text.split('|')[0].strip()
+		else:
+			company_dict['name'] = soup.find('title').text.split('|')[1].strip()
+
+	except Exception:
+		try:
+			if '-' in soup.find('title').text:
+				if soup.find('title').text.split('-')[0] > soup.find('title').text.split('-')[1]:
+					company_dict['name'] = soup.find('title').text.split('-')[0].strip()
+				else:
+					company_dict['name'] = soup.find('title').text.split('-')[1].strip()
+			else:
+				company_dict['name'] = soup.find('title').text.strip()
+		except Exception:
+			company_dict['name'] = ''
+		
+	#finally:
+	#	company_dict['name'] = soup.find('title').text.strip()
+
+
+	#except Exception:
+		#company_dict['name'] = ''
+
+	try:
+		company_dict['meta_title'] = soup.find('meta', attrs={'name':'title'}).get('content')
+	except Exception:
+		company_dict['meta_title'] = ''
+
+	try:
+		company_dict['meta_description'] = soup.find('meta', attrs={'name':'description'}).get('content')
+	except Exception:
+		company_dict['meta_description'] = ''
+	#abbreviations_regex = []
+	try:
+		if len(company_dict['name'].split(' ')) < 5:
+			#if 
+			company_dict['abbreviation'] = ''.join([ word[0] for word in company_dict['name'].split(' ')])
+	except Exception:
+		company_dict['abbreviation'] = ''
+
+	try:
+		if (str(' '+company_dict['abbreviation']+' ') or str(' '+company_dict['abbreviation']) or str(company_dict['abbreviation']+' ') in company_dict['meta_description']).upper():
+			pass
+		else:
+			company_dict['abbreviation'] = ''
+	except Exception:
+		company_dict['abbreviation'] = ''
+
+	company_dict = usa_gov_scraping_helper(soup, company_dict)
+
+	for city in cities:
+		if city in soup:
+			company_dict['city'] = city
+			break
+
+	#for state in abbrs.keys():
+	#	if state in soup:
+	#		company_dict['state'] = state
+	#		break
+
+	for url in soup.find_all('a'):
+		for word in form_keywords:
+			if url.text == word:
+				company_dict['form_link'] = url.get('href')
+				break
+
+	try:
+		if company_dict['address']:
+			pass
+
+	except Exception:
+
+		for link in soup.find_all('a'):
+			try:
+				contact_link = link.text
+				for word in contacts_keywords:
+					if word in contact_link:
+						driver.get(link.get('href'))
+						soup = BeautifulSoup(driver.page_source, 'lxml')
+						company_dict = usa_gov_scraping_helper(soup, company_dict)
+
+						break
+			except Exception:
+				pass
+
+	try:
+		if company_dict['form_link']:
+			pass
+
+	except Exception:
+
+		for link in soup.find_all('a'):
+			try:
+				form_link = link.text
+				for word in ['complaint', 'Complaint', 'File', 'file']:
+					if word in form_link:
+						company_dict['form_link'] = tag.get('href')
+						break
+			except Exception:
+				pass
+
+	driver.quit()
+	for key in company_dict.keys():
+		try:
+			company_dict[key] = company_dict[key].strip()
+		except Exception:
+			pass
+	print(company_dict)
+	#frame = frame.append()
+	frame = frame.append(company_dict, ignore_index=True)
+	frame.to_csv('all_gov_sites_data_1.csv', mode='a', header=False)
+
+	
+	return company_dict
+
+
+
+
+
+def usa_gov_scraping_helper(soup, company_dict):
+
+	pattern_phones = [r'\d\d\d[-.*, ]\d\d\d[-.*, ]\d\d\d\d', r'+1\d\d\d[-.*, ]\d\d\d[-.*, ]\d\d\d\d', 
+						r'\(\d\d\d\)[-.*, ]\d\d\d[-.*, ]\d\d\d\d', r'+1\(\d\d\d\)[-.*, ]\d\d\d.[-.*, ]\d\d\d\d']
+
+	address_keywords = [' Floor', ' Street', ' Avenue', 'P.O. Box', ' floor', ' street', 
+						' avenue', 'P.O. box', ' str ', ' ave ', 'p.o. box', ' Str ', 
+						' Ave ', ' str.', ' ave.', ' Str.', ' Ave.', ' Str\n', ' Ave\n',
+						' blvd.', 'boulevard', 'Boulevard', 'boulevard ', ' blvd\n', 
+						' Blvd\n', ' Blvd.', ' square', 'Square', 'broadway', 'Broadway']
+
+	email_pattern = '([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)'
+
+	#form_keywords = ['e-signature', 'signature', 'email signature', 'fax  signature', 'document management',
+	#				'e-signatures', 'signatures', 'email signatures', 'fax  signatures']
+
+
+	for tag in soup.find_all():
+
+		for pattern in pattern_phones:
+			try:
+				phone_re = re.search(pattern, tag.text)
+				if len(phone_re.group(0)) > 9 and len(phone_re.group(0)) < 15:
+					company_dict['phone'] = phone_re.group(0)
+			except:
+				pass
+
+		for keyword in address_keywords:
+			try:
+				if keyword in tag.text:
+					try:
+						company_dict['address'] = tag.text.replace('\n', ' ').strip()
+					except Exception:
+						company_dict['address'] = tag.text.strip()
+			except:
+				pass
+		try:
+
+			if len(company_dict['address']) > 255:
+				company_dict['address'] = ''
+
+		except Exception:
+			pass
+
+		try:
+			email_re = re.search(pattern, tag.text)
+			company_dict['email'] = email_re.group(0)
+		except:
+			pass
+
+		for state in abbrs.keys():
+			try:
+				if state in company_dict['meta_description']:
+					company_dict['state'] = state
+					continue
+			except Exception:
+				company_dict['state'] = ''
+
+		for city in cities:
+			if city in tag.text:
+				company_dict['city'] = city
+				continue
+
+		for word in ['File a complaint', 'File A Complaint', 'File a Complaint', 'File a complaint', 'file a complaint',
+						'Consumer Complaint', 'Consumer complaint', 'consumer complaint']:
+			#print(tag.get('href'))
+			try:
+				if word in tag.text:
+					#print('form link found:', tag.get('href'))
+					company_dict['form_link'] = tag.get('href')
+			except:
+				pass
+
+
+	return company_dict
+
+
+
+def usa_gov_scraping_contacts(link):
+
+	company_dict = {}
+
+	options = webdriver.ChromeOptions()
+	options.add_argument('headless')
+	driver = webdriver.Chrome(executable_path = './chromedriver', options = options)
+
+	contacts_keywords = ['contact', 'contact-us', 'contacts', 'contactus']
+
+	for keyword in contacts_keywords:
+		try:
+			link = link+'/'+keyword
+			driver.get(link)
+		except Exception:
+			link = link+keyword
+			driver.get(link)
+		soup = BeautifulSoup(driver.page_source)
+		for tag in soup.find_all():
+			try:
+				parsed_text = CommonRegex(tag.text)
+			except Exception:
+				pass
+			try:
+				phones = parsed_text.phones
+			except Exception:
+				phones = ''
+			try:
+				emails = parsed_text.emails
+			except Exception:
+				emails = ''
+			try:
+				addresses = parsed_text.street_addresses
+			except Exception:
+				addresses = ''
+
+
+			try:
+				if len(phones) > 1:
+					company_dict['phone'] = phones[0]
+				else:
+					company_dict['phone'] = phones
+			except Exception:
+				pass
+
+			try:
+				if len(emails) > 1:
+					company_dict['email'] = emails[0]
+				else:
+					company_dict['email'] = emails
+			except Exception:
+				pass	
+
+			try:
+				if len(addresses) > 1:
+					company_dict['address'] = addresses[0]
+				else:
+					company_dict['address'] = addresses
+			except Exception:
+				pass
+
+		print(company_dict)
+			
+			
+			
 
 
 
