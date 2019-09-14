@@ -12,8 +12,9 @@
 # file a complain officially)
 # Added task-specific functions to parse and scrape data from
 # multiple website (functions usa_gov_scraping, usa_gov_parser etc)
+# further development has been devotes to improving these functions
 
-# Version 1.7.4 from 06-Sep-2019
+# Version 1.7.4 from 14-Sep-2019
 
 import requests
 from threading import Thread
