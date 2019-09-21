@@ -5,16 +5,13 @@
 
 # For future developement: functions Bypass_Recaptcha(pageurl, sitekey),
 # whole_parser(link), porch_parser (each_zip).
-# Temporary solution with recaptcha is implemented with module
-# pyautogui (this will most likely not work on other platforms/devices)
-# in meantime collecting pictures from recaptcha for further ML.
-# Added functions for Pissed Consumer task (governmental oragnisations which with one can
+# Impoved functions for Pissed Consumer task (governmental oragnisations which with one can
 # file a complain officially)
-# Added task-specific functions to parse and scrape data from
+# Impoved task-specific functions to parse and scrape data from
 # multiple website (functions usa_gov_scraping, usa_gov_parser etc)
 # further development has been devotes to improving these functions
 
-# Version 1.7.4 from 14-Sep-2019
+# Version 1.7.5 from 21-Sep-2019
 
 import requests
 from threading import Thread
@@ -35,11 +32,13 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
+from selenium.webdriver.common.keys import Keys
 import pyautogui
 import autopy
 import pickle
 from validator import url_validator
 from commonregex import CommonRegex
+import pyap
 
 
 abbrs = { 'Alaska':	'AK', 'Alabama': 'AL', 'Arkansas': 'AR', 'Arizona': 'AZ', 'California': 'CA', 
@@ -762,12 +761,7 @@ def trustpilot_parser(link):
 
 
 def trustpilot_scraper(link='https://www.trustpilot.com/review/theteaspot.com'):
-	#domain = 'https://www.trustpilot.com'
-	#frame = pd.DataFrame(columns=['CategoryLink', 'ProfileLink', 'Website'])
-	#dict_biz = {}
-	#categories = {}
 	options = webdriver.ChromeOptions()
-	# options.add_argument('headless')
 	driver = webdriver.Chrome(executable_path = './chromedriver', options = options)
 	driver.get(link)
 	sleep(5)
@@ -801,19 +795,7 @@ def trustpilot_scraper(link='https://www.trustpilot.com/review/theteaspot.com'):
 		f.write(soup.prettify())
 	print(soup.find_all(class_='contact-point__details'))
 	print(name)
-	#	#print(each.get('href'))
-	#	dict_biz['CategoryLink'] = link
-	#	dict_biz['ProfileLink'] = domain+each.get('href')
-	#	print(domain+each.get('href'))
-	#	try:
-	#		dict_biz['Website'] = each.get('href').split('/')[-1].split('?')[0]
-	#	except Exception:
-	#		dict_biz['Website'] = each.get('href').split('/')[-1]
-	#	print(dict_biz)
-	#	frame = frame.append(dict_biz, ignore_index=True)
 
-	#frame.to_csv('trustpilot_links.csv', mode='a', header=False)
-	# driver.quit()
 
 def get_domain_name(link):
     #link = 'www.homeadvisor.com'
@@ -835,6 +817,21 @@ def get_domain_name(link):
         print('Invalid url, ', v)
 
 
+def usa_gov_cleaner(file):
+
+	for state in states:
+		link = url+state
+		r = requests.get(link)
+		soup = BeautifulSoup(r.text, 'lxml')
+		for each in soup.find_all('a'):
+			if 'general attorney' in each.text.lower() or 'attorney general' in each.text.lower() or 'consumer protection' in each.text.lower():
+				if each.get('href').startswith('http') or each.get('href').startswith('https') or each.get('href').startswith('www'):
+					#print(each.get('href'))
+					with open(file+'_attorneys', 'a') as f:
+						f.write(each.get('href')+'\n')
+						print(each.get('href'))
+
+
 
 def usa_gov_parser(file):
 
@@ -847,446 +844,294 @@ def usa_gov_parser(file):
 	options = webdriver.ChromeOptions()
 	options.add_argument('headless')
 	driver = webdriver.Chrome(executable_path = './chromedriver', options = options)
-	#print(states)
-	for state in states:
+	"""for state in states:
 		link = url+state
-		#driver.get(link)
 		r = requests.get(link)
 		soup = BeautifulSoup(r.text, 'lxml')
-		for each in soup.find_all('a'):
-			if 'general attorney' in each.text.lower() or 'attorney general' in each.text.lower() or 'consumer protection' in each.text.lower():
-				if each.get('href').startswith('http') or each.get('href').startswith('https') or each.get('href').startswith('www'):
-					#print(each.get('href'))
-					with open(file+'_attorneys', 'a') as f:
-						f.write(each.get('href')+'\n')
-						print(each.get('href'))
-					#if get_domain_name(each.get('href')) in base_urls or each.get('href').startswith('/') or each.get('href').startswith('#'):
-					#	continue
-
-
-
-
-
-
+		if 'general attorney' in soup.get_text().lower() or 'attorney general' in soup.get_text().lower() or 'consumer protection' in soup.get_text().lower() or 'file complaint' in soup.get_text().lower() 'file a complaint' in soup.get_text().lower():
+			if each.get('href').startswith('http') or each.get('href').startswith('https') or each.get('href').startswith('www'):
+				#print(each.get('href'))
+				with open(file+'_attorneys', 'a') as f:
+					f.write(each.get('href')+'\n')
+					print(each.get('href'))"""
 
 
 def usa_gov_scraper(link):
 
-	frame = pd.DataFrame(columns=['title', 'link', 'name', 'meta_title', 'meta_description', 
-									'abbreviation', 'city', 'form_link', 'phone', 'email', 'address'])
+	columns = ['title', 'link', 'name', 'meta_title', 'meta_description', 'abbreviation', 
+					'city', 'form_link', 'phone', 'email', 'address', 'level']
 
-	#i = 0
+	frame = pd.DataFrame(columns=columns)
 
 	options = webdriver.ChromeOptions()
 	options.add_argument('headless')
 	driver = webdriver.Chrome(executable_path = './chromedriver', options = options)
 
+	federal_keywords = ['national', 'federal', 'united states']
+
+	county_keywords = ['county', 'area', 'district']
+
 	form_keywords = ['e-signature', 'signature', 'email signature', 'fax  signature', 'document management',
 					'e-signatures', 'signatures', 'email signatures', 'fax  signatures']
 
-	contacts_keywords = ['contacts', 'contact', 'phone', 
-						'Contacts', 'Contact', 'Phone']
+	contacts_keywords = ['contacts', 'contact', 'phone', 'about', 'address', 'connect', 'location']
 
 	company_dict = {}
-
+	#company_dict['form_link'] = link
 	try:
+		print('Scraping... ', link)
 		driver.get(link)
 	except Exception as e:
-		driver.get('http://'+link)
-		#print('***Exception: ', link, e)
+		print('Invalid url:', link)
+		with open('failed_links', 'a') as file:
+			file.write(link+'\n')
+		driver.quit()
 		return
 
-	company_dict['link'] = link
+	company_dict['link'] = driver.current_url
 
 	soup = BeautifulSoup(driver.page_source, 'lxml')
-	#print(type(driver.page_source))
-	try:
-		if soup.find('title').text.split('|')[0] > soup.find('title').text.split('|')[1]:
-			company_dict['name'] = soup.find('title').text.split('|')[0].strip()
-		else:
-			company_dict['name'] = soup.find('title').text.split('|')[1].strip()
 
-	except Exception:
+	try:
+		company_dict['name'] = soup.find('meta', attrs={'property':'og:site_name'}).get('content').strip()
+	except Exception as e:
+		#print('Exception 4:', e)
 		try:
-			if '-' in soup.find('title').text:
-				if soup.find('title').text.split('-')[0] > soup.find('title').text.split('-')[1]:
-					company_dict['name'] = soup.find('title').text.split('-')[0].strip()
-				else:
-					company_dict['name'] = soup.find('title').text.split('-')[1].strip()
-			else:
-				company_dict['name'] = soup.find('title').text.strip()
-		except Exception:
-			company_dict['name'] = ''
-		
-	#finally:
-	#	company_dict['name'] = soup.find('title').text.strip()
-
-
-	#except Exception:
-		#company_dict['name'] = ''
+			for each in soup.find('title').text.strip().split('-'):
+				if 'home' not in each.lower() and 'homepage' not in each.lower() and 'home page' not in each.lower():
+					company_dict['name'] = each
+		except Exception as e:
+			#print('Exception 5:', e)
+			try:
+				for each in soup.find('title').text.strip().split('|'):
+					if 'home' not in each.lower() and 'homepage' not in each.lower() and 'home page' not in each.lower():
+						company_dict['name'] = each.strip()
+			except Exception as e:
+				#print('Exception 6:', e)
+				company_dict['name'] = ''
 
 	try:
-		company_dict['meta_title'] = soup.find('meta', attrs={'name':'title'}).get('content')
-	except Exception:
+		company_dict['meta_title'] = soup.find('meta', attrs={'property':'og:title'}).get('content').strip()
+	except Exception as e:
+		#print('Exception 7:', e)
 		company_dict['meta_title'] = ''
 
 	try:
-		company_dict['meta_description'] = soup.find('meta', attrs={'name':'description'}).get('content')
-	except Exception:
-		company_dict['meta_description'] = ''
-	#abbreviations_regex = []
+		company_dict['meta_description'] = soup.find('meta', attrs={'property':'og:description'}).get('content').strip()
+	except Exception as e:
+		#print('Exception 8:', e)
+		try:
+			company_dict['meta_description'] = soup.find('meta', attrs={'name':'description'}).get('content').strip()
+		except Exception as e:
+			#print('Exception 9:', e)
+			company_dict['meta_description'] = ''
+	
 	try:
-		if len(company_dict['name'].split(' ')) < 5:
-			#if 
-			company_dict['abbreviation'] = ''.join([ word[0] for word in company_dict['name'].split(' ')])
+		assert len(company_dict['level']) > 0
 	except Exception:
-		company_dict['abbreviation'] = ''
-
-	try:
-		if (str(' '+company_dict['abbreviation']+' ') or str(' '+company_dict['abbreviation']) or str(company_dict['abbreviation']+' ') in company_dict['meta_description']).upper():
-			pass
-		else:
-			company_dict['abbreviation'] = ''
-	except Exception:
-		company_dict['abbreviation'] = ''
+		while True:
+			switch = False
+			if switch == False:
+				for state in abbrs.keys():
+					if state.lower() in company_dict['name'].lower():
+						company_dict['level'] = 'state'
+						switch = True
+						break
+			if switch == False:
+				for city in cities:
+					if city.lower() in company_dict['name'].lower():
+						company_dict['level'] = 'city'
+						switch = True
+						break
+			if switch == False:
+				for federal_keyword in federal_keywords:
+					if federal_keyword in company_dict['name'].lower():
+						company_dict['level'] = 'federal'
+						switch = True
+						break
+			if switch == False:
+				for county_keyword in county_keywords:
+					if county_keyword in company_dict['name'].lower():
+						company_dict['level'] = 'county'
+						switch = True
+						break
+			break
 
 	company_dict = usa_gov_scraping_helper(soup, company_dict)
 
-	for city in cities:
-		if city in soup:
-			company_dict['city'] = city
-			break
-
-	#for state in abbrs.keys():
-	#	if state in soup:
-	#		company_dict['state'] = state
-	#		break
-
-	for url in soup.find_all('a'):
-		for word in form_keywords:
-			if url.text == word:
-				company_dict['form_link'] = url.get('href')
-				break
-
 	try:
-		if company_dict['address']:
-			pass
+		assert len(company_dict['address'])
 
-	except Exception:
+	except Exception as e:
+		#print('Exception 10:', e)
 
 		for link in soup.find_all('a'):
 			try:
 				contact_link = link.text
 				for word in contacts_keywords:
+					if word in link:
+						break
 					if word in contact_link:
 						driver.get(link.get('href'))
 						soup = BeautifulSoup(driver.page_source, 'lxml')
 						company_dict = usa_gov_scraping_helper(soup, company_dict)
 
 						break
-			except Exception:
+			except Exception as e:
+				#print('Exception 11:', e)
 				pass
 
-	try:
-		if company_dict['form_link']:
-			pass
-
-	except Exception:
-
-		for link in soup.find_all('a'):
-			try:
-				form_link = link.text
-				for word in ['complaint', 'Complaint', 'File', 'file']:
-					if word in form_link:
-						company_dict['form_link'] = tag.get('href')
-						break
-			except Exception:
-				pass
-
-	driver.quit()
-	for key in company_dict.keys():
+	for col in columns:
 		try:
-			company_dict[key] = company_dict[key].strip()
-		except Exception:
-			pass
+			if col == 'address':
+				continue
+			assert len(company_dict[col]) > 0
+			#company_dict[col] = company_dict[col].strip()
+		except Exception as e:
+			#print('Exception 12:', e)
+			company_dict[col] = ''
+
 	print(company_dict)
 	#frame = frame.append()
 	frame = frame.append(company_dict, ignore_index=True)
 	frame.to_csv('all_gov_sites_data_1.csv', mode='a', header=False)
 
-	
+	if driver:
+		driver.quit()
 	return company_dict
-
-
 
 
 
 def usa_gov_scraping_helper(soup, company_dict):
 
+	form_link_keyword = ['file-complaint', 'filecomplaint', 'file_complaint', 'consumercomplaint', 'consumer-complaint', 'consumer_complaint',
+						'complaintform', 'complaint-form', 'complaint_form', 'complaintonline', 'complaint-online', 'complaint_online',
+						'onlinecomplaint', 'online-complaint', 'online_complaint', 'consumerform', 'consumer-form', 'consumer_form',
+						'formconsumer', 'form-consumer', 'form_consumer']
+
 	pattern_phones = [r'\d\d\d[-.*, ]\d\d\d[-.*, ]\d\d\d\d', r'+1\d\d\d[-.*, ]\d\d\d[-.*, ]\d\d\d\d', 
 						r'\(\d\d\d\)[-.*, ]\d\d\d[-.*, ]\d\d\d\d', r'+1\(\d\d\d\)[-.*, ]\d\d\d.[-.*, ]\d\d\d\d']
 
-	address_keywords = [' Floor', ' Street', ' Avenue', 'P.O. Box', ' floor', ' street', 
-						' avenue', 'P.O. box', ' str ', ' ave ', 'p.o. box', ' Str ', 
-						' Ave ', ' str.', ' ave.', ' Str.', ' Ave.', ' Str\n', ' Ave\n',
-						' blvd.', 'boulevard', 'Boulevard', 'boulevard ', ' blvd\n', 
-						' Blvd\n', ' Blvd.', ' square', 'Square', 'broadway', 'Broadway']
-
 	email_pattern = '([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)'
 
-	#form_keywords = ['e-signature', 'signature', 'email signature', 'fax  signature', 'document management',
-	#				'e-signatures', 'signatures', 'email signatures', 'fax  signatures']
+	for each in soup.find_all():
 
+		try:
+			email_re = re.search(email_pattern, each.text)
+			if len(email_re.group(0)) > 5 and len(email_re.group(0)) < 75:
+				company_dict['email'] = email_re.group(0)
 
-	for tag in soup.find_all():
+		except Exception as e:
+			#print('Exception 22:', e)
+			pass
 
-		for pattern in pattern_phones:
+		try:
+			assert len(company_dict['phone']) > 0
+		except Exception as e:
+			#print('Missing phone:', e)
+			for pattern in pattern_phones:
+				try:
+					phone_re = re.search(pattern, each.text)
+					if len(phone_re.group(0)) > 9 and len(phone_re.group(0)) < 15:
+						company_dict['phone'] = phone_re.group(0)
+				except Exception as e:
+					#print('Exception 20:', e)
+					pass
+
+		if each.name == 'a':
 			try:
-				phone_re = re.search(pattern, tag.text)
-				if len(phone_re.group(0)) > 9 and len(phone_re.group(0)) < 15:
-					company_dict['phone'] = phone_re.group(0)
-			except:
-				pass
-
-		for keyword in address_keywords:
-			try:
-				if keyword in tag.text:
+				assert len(company_dict['form_link']) > 0
+			except Exception as e:
+				#print('Exception 15.1', e)
+				for word in form_link_keyword:
 					try:
-						company_dict['address'] = tag.text.replace('\n', ' ').strip()
-					except Exception:
-						company_dict['address'] = tag.text.strip()
-			except:
-				pass
+						if word in each.get('href'):
+							company_dict['form_link'] = each.get('href')
+							break
+					except Exception as e:
+						try:
+							if 'file complaint' in each.text.lower() or 'consumer complaint' in each.text.lower() or 'complaint form' in each.text.lower() or 'complaint online' in each.text.lower() or 'online complaint' in each.text.lower() or 'consumer form' in each.text.lower():
+								company_dict['form_link'] = each.get('href')
+								break
+						except Exception:
+							company_dict['form_link'] = ''
+
+		if each.text.strip().startswith('<') or each.text.strip().startswith('#') or each.text.strip().startswith('{') or '{"@' in each.text or '{"' in each.text or 'jQuery' in each.text or each.name == 'script':
+			continue
+		
 		try:
-
-			if len(company_dict['address']) > 255:
-				company_dict['address'] = ''
-
-		except Exception:
+			if (''.join([ word[0] for word in company_dict['name'].split(' ')])).upper() in each.text:
+				if len((''.join([ word[0] for word in company_dict['name'].split(' ')])).upper()) >= 3 and len((''.join([ word[0] for word in company_dict['name'].split(' ')])).upper()) <= 6:
+					company_dict['abbreviation'] = ''.join([ word[0] for word in company_dict['name'].split(' ')])
+		except Exception as e:
+			#print('No abbreviations in the name found:', e)
 			pass
 
+	try:
+		assert len(company_dict['address']) > 0
+	except Exception as e:
+		#print('Exception 19', e)
 		try:
-			email_re = re.search(pattern, tag.text)
-			company_dict['email'] = email_re.group(0)
-		except:
-			pass
+			company_dict['address'] = pyap.parse(soup.get_text(), country='US')[0]
+		except Exception as e:
+			#print('No address has been found', e)
+			company_dict['address'] = ''
 
-		for state in abbrs.keys():
-			try:
-				if state in company_dict['meta_description']:
-					company_dict['state'] = state
-					continue
-			except Exception:
-				company_dict['state'] = ''
+	try:
+		if len(company_dict['address']) > 255:
+			company_dict['address'] = ''
+
+	except Exception as e:
+		#print('No address has been found:', e)
+		pass
+
+	try:
+		assert len(company_dict['city']) > 0
+	except Exception as e:
+		#print('Exception 22.2:', e)
 
 		for city in cities:
-			if city in tag.text:
-				company_dict['city'] = city
-				continue
-
-		for word in ['File a complaint', 'File A Complaint', 'File a Complaint', 'File a complaint', 'file a complaint',
-						'Consumer Complaint', 'Consumer complaint', 'consumer complaint']:
-			#print(tag.get('href'))
 			try:
-				if word in tag.text:
-					#print('form link found:', tag.get('href'))
-					company_dict['form_link'] = tag.get('href')
-			except:
+				if city in str(company_dict['address']):
+					company_dict['city'] = city
+					break
+				else:
+					for each in soup.find_all():
+						if each.text.strip().startswith('<') or each.text.strip().startswith('#') or each.text.strip().startswith('{') or '{"@' in each.text or '{"' in each.text or 'jQuery' in each.text or each.tag == 'script':
+							continue
+						else:
+							if city in each.text:
+								company_dict['city'] = city
+								break
+			except Exception as e:
+				#print('Exception 23:', e)
 				pass
+			#company_dict['email'] = ''
+	try:
+		assert len(company_dict['state']) > 0
+	except Exception as e:
+		#print('Exception 24:', e)
+		try:
+			for state in abbrs.keys():
+				try:
+					if state in str(company_dict['address']):
+						if abbrs[state] in str(company_dict['address']):
+							company_dict['state'] = state
+							break
+					else:
+						for each in soup.find_all():
+							if each.text.strip().startswith('<') or each.text.strip().startswith('#') or each.text.strip().startswith('{') or '{"@' in each.text or '{"' in each.text or 'jQuery' in each.text or each.tag == 'script':
+								continue
+							else:
+								if state in each.text:
+									company_dict['state'] = state
+									break
+				except Exception as e:
+					#print('Exception 25:', e)
+					pass
+		except Exception as e:
+			#print('Exception 26', e)
+			company_dict['email'] = ''
 
 
 	return company_dict
-
-
-
-def usa_gov_scraping_contacts(link):
-
-	company_dict = {}
-
-	options = webdriver.ChromeOptions()
-	options.add_argument('headless')
-	driver = webdriver.Chrome(executable_path = './chromedriver', options = options)
-
-	contacts_keywords = ['contact', 'contact-us', 'contacts', 'contactus']
-
-	for keyword in contacts_keywords:
-		try:
-			link = link+'/'+keyword
-			driver.get(link)
-		except Exception:
-			link = link+keyword
-			driver.get(link)
-		soup = BeautifulSoup(driver.page_source)
-		for tag in soup.find_all():
-			try:
-				parsed_text = CommonRegex(tag.text)
-			except Exception:
-				pass
-			try:
-				phones = parsed_text.phones
-			except Exception:
-				phones = ''
-			try:
-				emails = parsed_text.emails
-			except Exception:
-				emails = ''
-			try:
-				addresses = parsed_text.street_addresses
-			except Exception:
-				addresses = ''
-
-
-			try:
-				if len(phones) > 1:
-					company_dict['phone'] = phones[0]
-				else:
-					company_dict['phone'] = phones
-			except Exception:
-				pass
-
-			try:
-				if len(emails) > 1:
-					company_dict['email'] = emails[0]
-				else:
-					company_dict['email'] = emails
-			except Exception:
-				pass	
-
-			try:
-				if len(addresses) > 1:
-					company_dict['address'] = addresses[0]
-				else:
-					company_dict['address'] = addresses
-			except Exception:
-				pass
-
-		print(company_dict)
-			
-			
-			
-
-
-
-
-"""def Bypass_Recaptcha(pageurl, sitekey):
-	pageurl = "https://homeflock.com/dir-contractors/Home+Builders/Annapolis+MD"
-	sitekey = "6Le-wvkSAAAAAPBMRTvw0Q4Muexq9bi0DJwx_mJ-"
-
-	#proxy = "170.130.63.35:3128"
-	proxy = ''
-	auth_details = {
-	"username": "user",
-	"password": "pass"
-					}
-	args = ["--timeout 5"]
-	options = {"ignoreHTTPSErrors": True, "args": args}
-	client = Solver(pageurl, sitekey, options=options,
-     				proxy=proxy, proxy_auth=auth_details)
-	
-
-	solution = asyncio.get_event_loop().run_until_complete(client.start())
-	if solution:
-     		print(solution)"""
-
-
-
-#def Bypass_captcha:
-#	pass
-"""
-	def write_stat(loops, time):
-		with open('stat.csv', 'a', newline='') as csvfile:
-			spamwriter = csv.writer(csvfile, delimiter=',',
-								quotechar='"', quoting=csv.QUOTE_MINIMAL)
-			spamwriter.writerow([loops, time])  	 
-	
-	def check_exists_by_xpath(xpath):
-    	try:
-        	driver.find_element_by_xpath(xpath)
-    	except NoSuchElementException:
-        	return False
-    	return True
-	
-	def wait_between(a,b):
-		rand=uniform(a, b) 
-		sleep(rand)
- 
-	def dimention(driver): 
-		d = int(driver.find_element_by_xpath('//div[@id="rc-imageselect-target"]/table').get_attribute("class")[-1]);
-		return d if d else 3  # dimention is 3 by default
-	
-	# ***** main procedure to identify and submit picture solution	
-	def solve_images(driver):	
-		WebDriverWait(driver, 10).until(
-        	EC.presence_of_element_located((By.ID ,"rc-imageselect-target"))) 		
-		dim = dimention(driver)	
-	# ****************** check if there is a clicked tile ******************
-		if check_exists_by_xpath('//div[@id="rc-imageselect-target"]/table/tbody/tr/td[@class="rc-imageselect-tileselected"]'):
-			rand2 = 0
-		else:  
-			rand2 = 1 
-
-		# wait before click on tiles 	
-		wait_between(0.5, 1.0)		 
-		# ****************** click on a tile ****************** 
-		tile1 = WebDriverWait(driver, 10).until(
-        	EC.element_to_be_clickable((By.XPATH ,   '//div[@id="rc-imageselect-target"]/table/tbody/tr[{0}]/td[{1}]'.format(randint(1, dim), randint(1, dim )))))   
-		tile1.click() 
-		if (rand2):
-			try:
-				driver.find_element_by_xpath('//div[@id="rc-imageselect-target"]/table/tbody/tr[{0}]/td[{1}]'.format(randint(1, dim), randint(1, dim))).click()
-			except NoSuchElementException:          		
-		    	print('\n\r No Such Element Exception for finding 2nd tile')
-   
-	 
-		#****************** click on submit buttion ****************** 
-	driver.find_element_by_id("recaptcha-verify-button").click()
-
-	start = time()	 
-	url='...'
-	driver = webdriver.Firefox()
-	driver.get(url)
-
-	mainWin = driver.current_window_handle  
-
-	# move the driver to the first iFrame 
-	driver.switch_to_frame(driver.find_elements_by_tag_name("iframe")[0])
-
-	# *************  locate CheckBox  **************
-	CheckBox = WebDriverWait(driver, 10).until(
-        	EC.presence_of_element_located((By.ID ,"recaptcha-anchor"))
-        )	 
-
-	# *************  click CheckBox  ***************
-	wait_between(0.5, 0.7)  
-	# making click on captcha CheckBox 
-	CheckBox.click() 
- 
-	#***************** back to main window **************************************
-	driver.switch_to_window(mainWin)  
-
-	wait_between(2.0, 2.5) 
-
-	# ************ switch to the second iframe by tag name ******************
-	driver.switch_to_frame(driver.find_elements_by_tag_name("iframe")[1])  
-	i=1
-	while i<130:
-		print('\n\r{0}-th loop'.format(i))
-		# ******** check if checkbox is checked at the 1st frame ***********
-		driver.switch_to_window(mainWin)   
-		WebDriverWait(driver, 10).until(
-        	EC.frame_to_be_available_and_switch_to_it((By.TAG_NAME , 'iframe'))
-        	)  
-		wait_between(1.0, 2.0)
-		if check_exists_by_xpath('//span[@aria-checked="true"]'): 
-                	import winsound
-			winsound.Beep(400,1500)
-			write_stat(i, round(time()-start) - 1 ) # saving results into stat file
-			break 
-		
-		driver.switch_to_window(mainWin)   
-		# ********** To the second frame to solve pictures *************
-		wait_between(0.3, 1.5) 
-		driver.switch_to_frame(driver.find_elements_by_tag_name("iframe")[1]) 
-		solve_images(driver)
-		i=i+1
-"""
