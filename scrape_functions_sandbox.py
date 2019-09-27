@@ -11,10 +11,10 @@
 # multiple website (functions usa_gov_scraping, usa_gov_parser etc)
 # further development has been devotes to improving these functions
 
-# Version 1.7.5 from 21-Sep-2019
+# Version 1.7.6 from 27-Sep-2019
 
 import requests
-from threading import Thread
+#from threading import Thread
 from bs4 import BeautifulSoup
 import pandas as pd
 from selenium.webdriver.common.proxy import *
@@ -22,10 +22,10 @@ from time import gmtime, strftime, sleep, time
 import pandas as pd
 import sqlite3
 #from fake_useragent import UserAgent
-import asyncio
+#import asyncio
 #from nonocaptcha.solver import Solver
 import re, csv
-from random import uniform, randint
+#from random import uniform, randint
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
@@ -35,9 +35,9 @@ from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.keys import Keys
 import pyautogui
 import autopy
-import pickle
+#import pickle
 from validator import url_validator
-from commonregex import CommonRegex
+#from commonregex import CommonRegex
 import pyap
 
 
@@ -881,16 +881,33 @@ def usa_gov_scraper(link):
 	try:
 		print('Scraping... ', link)
 		driver.get(link)
+		#r = requests.get(link)
 	except Exception as e:
-		print('Invalid url:', link)
-		with open('failed_links', 'a') as file:
-			file.write(link+'\n')
-		driver.quit()
-		return
+		try:
+			if link.startswith('www.'):
+				driver.get('http://'+link)
+				#r = requests.get('http://'+link)
+			elif link.startswith('http://'):
+				with open('failed_links.csv', 'a') as file:
+					file.write(link+'\n')
+					#driver.quit()
+					return
+			else:
+				driver.get('http://www.'+link)
+				#r = requests.get('http://www.'+link)
+		except Exception:
+			with open('failed_links.csv', 'a') as file:
+				file.write(link+'\n')
+			return
 
-	company_dict['link'] = driver.current_url
+
+		#print('Invalid url:', link)
+
+
+	company_dict['link'] = link
 
 	soup = BeautifulSoup(driver.page_source, 'lxml')
+	#soup = BeautifulSoup(r.text, 'lxml')
 
 	try:
 		company_dict['name'] = soup.find('meta', attrs={'property':'og:site_name'}).get('content').strip()
@@ -973,6 +990,7 @@ def usa_gov_scraper(link):
 						break
 					if word in contact_link:
 						driver.get(link.get('href'))
+						#r = requests.get(link.get('href'))
 						soup = BeautifulSoup(driver.page_source, 'lxml')
 						company_dict = usa_gov_scraping_helper(soup, company_dict)
 
@@ -996,8 +1014,8 @@ def usa_gov_scraper(link):
 	frame = frame.append(company_dict, ignore_index=True)
 	frame.to_csv('all_gov_sites_data_1.csv', mode='a', header=False)
 
-	if driver:
-		driver.quit()
+	#if driver:
+		#driver.quit()
 	return company_dict
 
 
@@ -1055,6 +1073,14 @@ def usa_gov_scraping_helper(soup, company_dict):
 								break
 						except Exception:
 							company_dict['form_link'] = ''
+
+		#if company_dict['form_link'] == '':
+			#for class_ in each.get('class'):
+				#if 'search' in class_:
+					#elem = driver.find_element_by_class_name(class_)
+					#elem.click()
+					#sleep(5)
+
 
 		if each.text.strip().startswith('<') or each.text.strip().startswith('#') or each.text.strip().startswith('{') or '{"@' in each.text or '{"' in each.text or 'jQuery' in each.text or each.name == 'script':
 			continue
@@ -1126,6 +1152,7 @@ def usa_gov_scraping_helper(soup, company_dict):
 								if state in each.text:
 									company_dict['state'] = state
 									break
+
 				except Exception as e:
 					#print('Exception 25:', e)
 					pass
@@ -1133,5 +1160,28 @@ def usa_gov_scraping_helper(soup, company_dict):
 			#print('Exception 26', e)
 			company_dict['email'] = ''
 
-
 	return company_dict
+
+"""	try:
+		assert len(company_dict['form_link']) > 0
+
+	except Exception:
+		for each in soup.find_all():
+			try:
+				for class_ in each.get('class'):
+					if 'search' in class_.lower():
+						elem = driver.find_element_by_class_name(class_)
+						elem.click()
+						sleep(2)
+						elem.send_keys('file complaint')
+						elem.send_keys(Keys.RETURN)
+						sleep(4)
+						soup = BeautifulSoup(driver.page_source, 'lxml')
+						for tag in soup.find_all():
+							for result in tag.get('class'):
+								if 'result' in result.lower():
+									company_dict['form_link'] = result.get('href')
+									return company_dict
+
+			except Exception:
+				pass"""
