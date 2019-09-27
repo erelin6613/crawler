@@ -1,0 +1,387 @@
+#!/usr/bin/env python3
+# Developed by Valentyna Fihurska
+# Start of developement 27-Sep-2019
+
+# The underdeveloped spider for scraping functions not perfected yet
+# but could be improved upon and be implemented to new tasks.
+# Meanwhile current tasks are:
+# 1. deploy scraper to look for needed information to scrape
+# needed info for PS project;
+# 2. setting up a ScrapySelenium Request object instead of
+# Scrapy-native Request
+
+import scrapy
+from scrapy.crawler import CrawlerProcess
+from time import gmtime, strftime, sleep, time
+from scrapy.spidermiddlewares.depth import DepthMiddleware
+
+
+#frame = pd.read_csv('./file_companies_sites_copy_1.csv')
+#print(frame.head(5))
+
+
+abbrs = { 'Alaska':	'AK', 'Alabama': 'AL', 'Arkansas': 'AR', 'Arizona': 'AZ', 'California': 'CA', 
+			'Colorado': 'CO', 'Connecticut': 'CT', 'District of Columbia': 'DC', 'Delaware': 'DE', 
+			'Florida': 'FL', 'Georgia': 'GA', 'Iowa': 'IA', 'Idaho':	'ID', 
+			'Illinois': 'IL', 'Indiana': 'IN', 'Kansas': 'KS', 'Kentucky': 'KY', 
+			'Louisiana': 'LA', 'Massachusetts': 'MA', 'Maryland':	'MD', 'Maine': 'ME', 
+			'Michigan': 'MI', 'Minnesota': 'MN', 'Missouri': 'MO', 'Mississippi': 'MS',
+			'Montana': 'MT', 'North Carolina': 'NC', 'North Dakota': 'ND', 'Nebraska': 'NE', 
+			'New Hampshire': 'NH', 'New Jersey': 'NJ', 'New Mexico': 'NM', 'Nevada': 'NV', 
+			'New York': 'NY', 'Ohio': 'OH', 'Oklahoma': 'OK', 'Oregon': 'OR',
+			'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC', 'South Dakota': 'SD', 
+			'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Virginia': 'VA', 
+			'Vermont': 'VT', 'Washington': 'WA', 'Wisconsin': 'WI', 'West Virginia': 'WV',
+			'Wyoming': 'WY'}
+
+cities = ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix','Philadelphia', 'San Antonio', 'San Diego', 
+			'Dallas', 'San Jose',  'Austin', 'Jacksonville', 'Fort Worth', 'Columbus', 'San Francisco', 'Charlotte', 
+			'Indianapolis', 'Seattle', 'Denver', 'Washington', 'Boston', 'El Paso', 'Detroit', 'Nashville', 
+			'Portland', 'Memphis', 'Oklahoma City', 'Las Vegas', 'Louisville', 'Baltimore', 'Milwaukee', 
+			'Albuquerque', 'Tucson', 'Fresno', 'Mesa', 'Sacramento', 'Atlanta', 'Kansas City', 'Colorado Springs', 
+			'Miami', 'Raleigh', 'Omaha', 'Long Beach', 'Virginia Beach', 'Oakland', 'Minneapolis', 'Tulsa', 
+			'Arlington', 'Tampa', 'New Orleans', 'Wichita', 'Cleveland', 'Bakersfield', 'Aurora', 'Anaheim', 
+			'Honolulu', 'Santa Ana', 'Riverside', 'Corpus Christi', 'Lexington', 'Stockton', 'Henderson', 
+			'Saint Paul', 'St. Louis', 'Cincinnati', 'Pittsburgh', 'Greensboro', 'Anchorage', 'Plano', 'Lincoln', 
+			'Orlando', 'Irvine', 'Newark', 'Toledo', 'Durham', 'Chula Vista', 'Fort Wayne', 'Jersey City',
+			'St. Petersburg', 'Laredo', 'Madison', 'Chandler', 'Buffalo', 'Lubbock', 'Scottsdale', 'Reno', 
+			'Glendale', 'Gilbert', 'Winston–Salem', 'North Las Vegas', 'Norfolk', 'Chesapeake', 'Garland', 'Irving', 
+			'Hialeah', 'Fremont', 'Boise', 'Richmond', 'Baton Rouge', 'Spokane', 'Des Moines', 'Tacoma', 
+			'San Bernardino', 'Modesto', 'Fontana', 'Santa Clarita', 'Birmingham', 'Oxnard', 'Fayetteville', 
+			'Moreno Valley', 'Rochester', 'Glendale', 'Huntington Beach', 'Salt Lake City', 'Grand Rapids', 
+			'Amarillo', 'Yonkers', 'Aurora', 'Montgomery', 'Akron', 'Little Rock', 'Huntsville', 'Augusta', 
+			'Port St. Lucie', 'Grand Prairie', 'Columbus', 'Tallahassee', 'Overland Park', 'Tempe', 'McKinney', 
+			'Cape Coral', 'Shreveport', 'Frisco', 'Knoxville', 'Worcester', 'Brownsville', 'Vancouver', 
+			'Fort Lauderdale', 'Sioux Falls', 'Ontario', 'Chattanooga', 'Providence', 'Newport News', 
+			'Rancho Cucamonga', 'Santa Rosa', 'Oceanside', 'Salem', 'Elk Grove', 'Garden Grove', 'Pembroke Pines', 
+			'Eugene', 'Oregon', 'Corona', 'Cary', 'Springfield','Fort Collins','Jackson','Alexandria', 'Hayward',
+			'Lancaster', 'Lakewood', 'Clarksville', 'Palmdale', 'Salinas', 'Springfield', 'Hollywood', 'Pasadena', 
+			'Sunnyvale', 'Macon', 'Kansas City', 'Pomona', 'Escondido', 'Killeen', 'Naperville', 'Joliet', 
+			'Bellevue', 'Rockford', 'Savannah', 'Paterson', 'Torrance', 'Bridgeport', 'McAllen', 'Mesquite', 
+			'Syracuse', 'Midland', 'Pasadena', 'Murfreesboro', 'Miramar', 'Dayton', 'Fullerton', 'Olathe', 
+			'Orange', 'Thornton', 'Roseville', 'Denton', 'Waco', 'Surprise', 'Carrollton', 'West Valley City', 
+			'Charleston', 'Warren', 'Hampton', 'Gainesville', 'Visalia', 'Coral Springs',  'Columbia', 
+			'Cedar Rapids', 'Sterling Heights', 'New Haven', 'Stamford', 'Concord', 'Kent', 'Santa Clara', 
+			'Elizabeth', 'Round Rock', 'Thousand Oaks', 'Lafayette', 'Athens', 'Topeka', 'Simi Valley', 'Fargo', 
+			'Norman', 'Columbia', 'Abilene', 'Wilmington', 'Hartford', 'Victorville', 'Pearland', 'Vallejo', 
+			'Ann Arbor', 'Berkeley', 'Allentown', 'Richardson', 'Odessa', 'Arvada', 'Cambridge', 'Sugar Land', 
+			'Beaumont', 'Lansing', 'Evansville', 'Rochester', 'Independence', 'Fairfield', 'Provo', 'Clearwater', 
+			'College Station', 'West Jordan', 'Carlsbad', 'El Monte', 'Murrieta', 'Temecula', 'Springfield', 
+			'Palm Bay', 'Costa Mesa', 'Westminster', 'North Charleston', 'Miami Gardens', 'Manchester', 'High Point', 
+			'Downey', 'Clovis', 'Pompano Beach', 'Pueblo', 'Elgin', 'Lowell', 'Antioch', 'West Palm Beach', 'Peoria', 
+			'Everett', 'Ventura', 'Centennial', 'Lakeland', 'Gresham', 'Richmond', 'Billings', 'Inglewood', 
+			'Broken Arrow', 'Sandy Springs', 'Jurupa Valley', 'Hillsboro', 'Waterbury', 'Santa Maria', 'Boulder', 
+			'Greeley', 'Daly City', 'Meridian', 'Lewisville', 'Davie', 'West Covina', 'League City', 'Tyler', 
+			'Norwalk', 'San Mateo', 'Green Bay', 'Wichita Falls', 'Sparks', 'Lakewood', 'Burbank', 'Rialto', 'Allen', 
+			'El Cajon', 'Las Cruces', 'Renton', 'Davenport', 'South Bend', 'Vista', 'Tuscaloosa', 'Clinton', 'Edison', 
+			'Woodbridge', 'San Angelo', 'Kenosha', 'Vacaville']
+
+columns = ['title', 'link', 'name', 'meta_title', 'meta_description', 'abbreviation', 
+					'city', 'form_link', 'phone', 'email', 'address', 'level']
+
+federal_keywords = ['national', 'federal', 'united states']
+
+county_keywords = ['county', 'area', 'district']
+
+form_keywords = ['e-signature', 'signature', 'email signature', 'fax  signature', 'document management',
+					'e-signatures', 'signatures', 'email signatures', 'fax  signatures']
+
+contacts_keywords = ['contacts', 'contact', 'phone', 'about', 'address', 'connect', 'location']
+
+form_link_keyword = ['file-complaint', 'filecomplaint', 'file_complaint', 'consumercomplaint', 'consumer-complaint', 'consumer_complaint',
+						'complaintform', 'complaint-form', 'complaint_form', 'complaintonline', 'complaint-online', 'complaint_online',
+						'onlinecomplaint', 'online-complaint', 'online_complaint', 'consumerform', 'consumer-form', 'consumer_form',
+						'formconsumer', 'form-consumer', 'form_consumer']
+
+meta_words = ['attorney general', 'general attorney', 'consumer protection', 'consumer rights',
+						'file complaint', 'file a complaint', 'lawyer', 'federal', 'court', 'justice',
+						'government', 'county', 'attorney']
+
+pattern_phones = [r'\d\d\d[-.*, ]\d\d\d[-.*, ]\d\d\d\d', r'+1\d\d\d[-.*, ]\d\d\d[-.*, ]\d\d\d\d', 
+						r'\(\d\d\d\)[-.*, ]\d\d\d[-.*, ]\d\d\d\d', r'+1\(\d\d\d\)[-.*, ]\d\d\d.[-.*, ]\d\d\d\d']
+
+email_pattern = '([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)'
+
+
+class GovSpider(scrapy.Spider):
+	name = 'GovSpider'
+
+	def start_requests(self):
+		urls = ['http://www.ag.mn.gov/']
+		for url in urls:
+			yield scrapy.Request(url=url, callback=self.parse)
+
+	def parse(self, response):
+		company_dict = {}
+		frame = pd.DataFrame(columns=columns)
+
+		resp = response.xpath('//*')
+		matches = []
+		for each in resp:
+
+			try:
+				site_bag = each.xpath('./text()').get().strip()
+				for meta_word in meta_words:
+					if meta_word in site_bag.lower():
+						matches.append(1)
+
+			except Exception:
+				pass
+
+		if len(matches) > 0:
+
+			print('Scraping... ', response.url)
+			soup = BeautifulSoup(resp, 'lxml')
+			company_dict['link'] = response.url
+	
+			try:
+				company_dict['name'] = soup.find('meta', attrs={'property':'og:site_name'}).get('content').strip()
+			except Exception as e:
+				try:
+					for each in soup.find('title').text.strip().split('-'):
+						if 'home' not in each.lower() and 'homepage' not in each.lower() and 'home page' not in each.lower():
+							company_dict['name'] = each
+				except Exception as e:
+					try:
+						for each in soup.find('title').text.strip().split('|'):
+							if 'home' not in each.lower() and 'homepage' not in each.lower() and 'home page' not in each.lower():
+								company_dict['name'] = each.strip()
+					except Exception as e:
+						company_dict['name'] = ''
+
+			try:
+				company_dict['meta_title'] = soup.find('meta', attrs={'property':'og:title'}).get('content').strip()
+			except Exception as e:
+				company_dict['meta_title'] = ''
+
+			try:
+				company_dict['meta_description'] = soup.find('meta', attrs={'property':'og:description'}).get('content').strip()
+			except Exception as e:
+				try:
+					company_dict['meta_description'] = soup.find('meta', attrs={'name':'description'}).get('content').strip()
+				except Exception as e:
+					company_dict['meta_description'] = ''
+	
+			try:
+				assert len(company_dict['level']) > 0
+			except Exception:
+				while True:
+					switch = False
+					if switch == False:
+						for state in abbrs.keys():
+							if state.lower() in company_dict['name'].lower():
+								company_dict['level'] = 'state'
+								switch = True
+								break
+					if switch == False:
+						for city in cities:
+							if city.lower() in company_dict['name'].lower():
+								company_dict['level'] = 'city'
+								switch = True
+								break
+					if switch == False:
+						for federal_keyword in federal_keywords:
+							if federal_keyword in company_dict['name'].lower():
+								company_dict['level'] = 'federal'
+								switch = True
+								break
+					if switch == False:
+						for county_keyword in county_keywords:
+							if county_keyword in company_dict['name'].lower():
+								company_dict['level'] = 'county'
+								switch = True
+								break
+					break
+
+			company_dict = usa_gov_scraping_helper(soup, company_dict)
+
+			try:
+				assert len(company_dict['address'])
+
+			except Exception as e:
+
+				for link in soup.find_all('a'):
+					try:
+						contact_link = link.text
+						for word in contacts_keywords:
+							if word in link:
+								break
+							if word in contact_link:
+								yield response.follow(url=contact_link, callback=parse_contacts)
+								#soup = BeautifulSoup(driver.page_source, 'lxml')
+								#company_dict = usa_gov_scraping_helper(soup, company_dict)
+
+								break
+					except Exception as e:
+						pass
+
+			for col in columns:
+				try:
+					if col == 'address':
+						continue
+					assert len(company_dict[col]) > 0
+				except Exception as e:
+					company_dict[col] = ''
+
+			print(company_dict)
+			frame = frame.append(company_dict, ignore_index=True)
+			#frame.to_csv('all_gov_sites_data_1.csv', mode='a', header=False)
+			#return company_dict
+
+
+
+		def parse_contacts(self, soup, company_dict):
+
+
+			for each in soup.find_all():
+
+				try:
+					email_re = re.search(email_pattern, each.text)
+					if len(email_re.group(0)) > 5 and len(email_re.group(0)) < 75:
+						company_dict['email'] = email_re.group(0)
+
+				except Exception as e:
+					pass
+
+				try:
+					assert len(company_dict['phone']) > 0
+				except Exception as e:
+					for pattern in pattern_phones:
+					try:
+						phone_re = re.search(pattern, each.text)
+						if len(phone_re.group(0)) > 9 and len(phone_re.group(0)) < 15:
+							company_dict['phone'] = phone_re.group(0)
+					except Exception as e:
+						pass
+
+				if each.name == 'a':
+					try:
+						assert len(company_dict['form_link']) > 0
+					except Exception as e:
+						for word in form_link_keyword:
+							try:
+								if word in each.get('href'):
+									company_dict['form_link'] = each.get('href')
+									break
+							except Exception as e:
+								try:
+									if 'file complaint' in each.text.lower() or 'consumer complaint' in each.text.lower() or 'complaint form' in each.text.lower() or 'complaint online' in each.text.lower() or 'online complaint' in each.text.lower() or 'consumer form' in each.text.lower():
+										company_dict['form_link'] = each.get('href')
+										break
+								except Exception:
+									company_dict['form_link'] = ''
+
+
+
+		if each.text.strip().startswith('<') or each.text.strip().startswith('#') or each.text.strip().startswith('{') or '{"@' in each.text or '{"' in each.text or 'jQuery' in each.text or each.name == 'script':
+			continue
+		
+		try:
+			if (''.join([ word[0] for word in company_dict['name'].split(' ')])).upper() in each.text:
+				if len((''.join([ word[0] for word in company_dict['name'].split(' ')])).upper()) >= 3 and len((''.join([ word[0] for word in company_dict['name'].split(' ')])).upper()) <= 6:
+					company_dict['abbreviation'] = ''.join([ word[0] for word in company_dict['name'].split(' ')])
+		except Exception as e:
+			#print('No abbreviations in the name found:', e)
+			pass
+
+	try:
+		assert len(company_dict['address']) > 0
+	except Exception as e:
+		#print('Exception 19', e)
+		try:
+			company_dict['address'] = pyap.parse(soup.get_text(), country='US')[0]
+		except Exception as e:
+			#print('No address has been found', e)
+			company_dict['address'] = ''
+
+	try:
+		if len(company_dict['address']) > 255:
+			company_dict['address'] = ''
+
+	except Exception as e:
+		#print('No address has been found:', e)
+		pass
+
+	try:
+		assert len(company_dict['city']) > 0
+	except Exception as e:
+		#print('Exception 22.2:', e)
+
+		for city in cities:
+			try:
+				if city in str(company_dict['address']):
+					company_dict['city'] = city
+					break
+				else:
+					for each in soup.find_all():
+						if each.text.strip().startswith('<') or each.text.strip().startswith('#') or each.text.strip().startswith('{') or '{"@' in each.text or '{"' in each.text or 'jQuery' in each.text or each.tag == 'script':
+							continue
+						else:
+							if city in each.text:
+								company_dict['city'] = city
+								break
+			except Exception as e:
+				#print('Exception 23:', e)
+				pass
+			#company_dict['email'] = ''
+	try:
+		assert len(company_dict['state']) > 0
+	except Exception as e:
+		#print('Exception 24:', e)
+		try:
+			for state in abbrs.keys():
+				try:
+					if state in str(company_dict['address']):
+						if abbrs[state] in str(company_dict['address']):
+							company_dict['state'] = state
+							break
+					else:
+						for each in soup.find_all():
+							if each.text.strip().startswith('<') or each.text.strip().startswith('#') or each.text.strip().startswith('{') or '{"@' in each.text or '{"' in each.text or 'jQuery' in each.text or each.tag == 'script':
+								continue
+							else:
+								if state in each.text:
+									company_dict['state'] = state
+									break
+
+				except Exception as e:
+					#print('Exception 25:', e)
+					pass
+		except Exception as e:
+			#print('Exception 26', e)
+			company_dict['email'] = ''
+
+	return company_dict
+
+		#print('we`ve got a site to parse!')
+
+
+
+	def parse_site(self, response):
+		#print(response.xpath('//meta::attr(property)'))
+			print('WORKS!!!!')
+
+
+#('div.course-block > a::attr(href)')
+
+#	try:
+#		company_dict['meta_title'] = soup.find('meta', attrs={'property':'og:title'}).get('content').strip()
+#	except Exception as e:
+		#print('Exception 7:', e)
+#		company_dict['meta_title'] = ''
+
+#	try:
+#		company_dict['meta_description'] = soup.find('meta', attrs={'property':'og:description'}).get('content').strip()
+#	except Exception as e:
+		#print('Exception 8:', e)
+#		try:
+#			company_dict['meta_description'] = soup.find('meta', attrs={'name':'description'}).get('content').strip()
+#		except Exception as e:
+			#print('Exception 9:', e)
+#			company_dict['meta_description'] = ''
+
+
+
+process = CrawlerProcess()
+process.crawl(GovSpider)
+process.start()
