@@ -3,15 +3,13 @@
 # Olha Babich for wiserbrand.com
 # Start of developement 22-Jan-2019
 
-# For future developement: functions Bypass_Recaptcha(pageurl, sitekey),
-# whole_parser(link), porch_parser (each_zip).
 # Impoved functions for Pissed Consumer task (governmental oragnisations which with one can
 # file a complain officially)
 # Impoved task-specific functions to parse and scrape data from
 # multiple website (functions usa_gov_scraping, usa_gov_parser etc)
 # further development has been devotes to improving these functions
 
-# Version 1.7.6 from 27-Sep-2019
+# Version 1.7.7 from 04-Oct-2019
 
 import requests
 #from threading import Thread
@@ -35,6 +33,7 @@ from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.keys import Keys
 import pyautogui
 import autopy
+import xml.etree.ElementTree as etree
 #import pickle
 from validator import url_validator
 #from commonregex import CommonRegex
@@ -833,27 +832,64 @@ def usa_gov_cleaner(file):
 
 
 
-def usa_gov_parser(file):
+def usa_gov_parser():
 
-	base = open(file, 'r')
-	base_urls = [each.split('\n')[0] for each in base.readlines()]
-	base_urls = [get_domain_name(url) for url in base_urls]
-	base.close()
-	url = 'https://www.usa.gov/state-consumer/'
+	file = open('file_consumer_complaint_search.csv', 'a')
+	#url = 'https://www.usa.gov/state-consumer/'
+	#url ='https://www.google.com/search?ei=EF-TXY6fI4fj-gS-nbLgDQ&q=file+a+consumer+complaint+{}+{}&oq=file+a+consumer+complaint+az+phoenix&gs_l=psy-ab.3..33i299j33i160.6315.12568..12837...0.2..0.546.3158.2-3j4j1j1......0....1..gws-wiz.......0i71j0j0i22i30j33i22i29i30.ob7oBxmCT2c&ved=0ahUKEwiO58qqn_vkAhWHsZ4KHb6ODNwQ4dUDCAs&uact=5'.format(state, city)
 	states = [key.lower() for key in abbrs.keys()]
 	options = webdriver.ChromeOptions()
 	options.add_argument('headless')
 	driver = webdriver.Chrome(executable_path = './chromedriver', options = options)
-	"""for state in states:
-		link = url+state
-		r = requests.get(link)
-		soup = BeautifulSoup(r.text, 'lxml')
-		if 'general attorney' in soup.get_text().lower() or 'attorney general' in soup.get_text().lower() or 'consumer protection' in soup.get_text().lower() or 'file complaint' in soup.get_text().lower() 'file a complaint' in soup.get_text().lower():
-			if each.get('href').startswith('http') or each.get('href').startswith('https') or each.get('href').startswith('www'):
+	for state in states:
+		link = 'https://www.google.com/search?ei=EF-TXY6fI4fj-gS-nbLgDQ&q=file+a+consumer+complaint+{}&oq=file+a+consumer+complaint+{}&gs_l=psy-ab.3..33i299j33i160.6315.12568..12837...0.2..0.546.3158.2-3j4j1j1......0....1..gws-wiz.......0i71j0j0i22i30j33i22i29i30.ob7oBxmCT2c&ved=0ahUKEwiO58qqn_vkAhWHsZ4KHb6ODNwQ4dUDCAs&uact=5'.format(state, state)
+		driver.get(link)
+		soup = BeautifulSoup(driver.page_source, 'lxml')
+		for each in soup.find_all(class_='iUh30 bc'):
+			try:
+				url = each.text.split(' ')[0]
+
+			except Exception:
+				try:
+					url = each.text
+				except Exception:
+					pass
+
+			try:
+				file.write(url+'\n')
+			except Exception:
+				pass
+
+
+
+
+	for city in cities:
+		link = 'https://www.google.com/search?ei=EF-TXY6fI4fj-gS-nbLgDQ&q=file+a+consumer+complaint+{}&oq=file+a+consumer+complaint+{}&gs_l=psy-ab.3..33i299j33i160.6315.12568..12837...0.2..0.546.3158.2-3j4j1j1......0....1..gws-wiz.......0i71j0j0i22i30j33i22i29i30.ob7oBxmCT2c&ved=0ahUKEwiO58qqn_vkAhWHsZ4KHb6ODNwQ4dUDCAs&uact=5'.format(city, city)
+		driver.get(link)
+		soup = BeautifulSoup(driver.page_source, 'lxml')
+		for each in soup.find_all(class_='iUh30 bc'):
+			try:
+				url = each.text.split(' ')[0]
+			except Exception:
+				try:
+					url = each.text
+				except Exception:
+					pass
+
+			try:
+				file.write(url+'\n')
+			except Exception:
+				pass
+
+	file.close()
+	driver.guit()
+
+		#if 'general attorney' in soup.get_text().lower() or 'attorney general' in soup.get_text().lower() or 'consumer protection' in soup.get_text().lower() or 'file complaint' in soup.get_text().lower() 'file a complaint' in soup.get_text().lower():
+		#	if each.get('href').startswith('http') or each.get('href').startswith('https') or each.get('href').startswith('www'):
 				#print(each.get('href'))
-				with open(file+'_attorneys', 'a') as f:
-					f.write(each.get('href')+'\n')
-					print(each.get('href'))"""
+				#with open(file+'_attorneys', 'a') as f:
+				#	f.write(each.get('href')+'\n')
+				#	print(each.get('href'))
 
 
 def usa_gov_scraper(link):
@@ -1098,29 +1134,42 @@ def usa_gov_scraping_helper(soup, company_dict):
 	except Exception as e:
 		#print('Exception 19', e)
 		try:
+			""" The idea to check the address with an API http://geocoder.ca
+				should be attributed to Vitalyi Bulah."""
 			company_dict['address'] = pyap.parse(soup.get_text(), country='US')[0]
-		except Exception as e:
-			#print('No address has been found', e)
-			company_dict['address'] = ''
+			if len(company_dict['address'])> 0:
+				url_geo = "http://geocoder.ca/?locate={0}&geoit=xml".format(item)
+				try:
+					r = requests.get(url_geo, timeout=30)
+					root = etree.fromstring(r.text)
+				except Exception:
+					pass
+
+				for child in root:
+					if child.tag == 'error':
+						for item in child:
+							company_dict['address'] = ''
+							break
+		except Exception:
+			pass
 
 	try:
 		if len(company_dict['address']) > 255:
 			company_dict['address'] = ''
 
 	except Exception as e:
-		#print('No address has been found:', e)
 		pass
 
 	try:
 		assert len(company_dict['city']) > 0
 	except Exception as e:
-		#print('Exception 22.2:', e)
 
 		for city in cities:
 			try:
 				if city in str(company_dict['address']):
 					company_dict['city'] = city
 					break
+
 				else:
 					for each in soup.find_all():
 						if each.text.strip().startswith('<') or each.text.strip().startswith('#') or each.text.strip().startswith('{') or '{"@' in each.text or '{"' in each.text or 'jQuery' in each.text or each.tag == 'script':
@@ -1130,13 +1179,11 @@ def usa_gov_scraping_helper(soup, company_dict):
 								company_dict['city'] = city
 								break
 			except Exception as e:
-				#print('Exception 23:', e)
 				pass
-			#company_dict['email'] = ''
+
 	try:
 		assert len(company_dict['state']) > 0
 	except Exception as e:
-		#print('Exception 24:', e)
 		try:
 			for state in abbrs.keys():
 				try:
