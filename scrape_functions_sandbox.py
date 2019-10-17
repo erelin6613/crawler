@@ -8,8 +8,10 @@
 # Impoved task-specific functions to parse and scrape data from
 # multiple website (functions usa_gov_scraping, usa_gov_parser etc)
 # further development has been devotes to improving these functions
+# Deployed checking the address with an API http://geocoder.ca
+# Credit for the idea goes to Vitalyi Bulah."""
 
-# Version 1.7.7 from 04-Oct-2019
+# Version 1.7.8 from 14-Oct-2019
 
 import requests
 #from threading import Thread
