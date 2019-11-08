@@ -3,15 +3,13 @@
 # Olha Babich for wiserbrand.com
 # Start of developement 22-Jan-2019
 
-# Impoved functions for Pissed Consumer task (governmental oragnisations which with one can
-# file a complain officially)
-# Impoved task-specific functions to parse and scrape data from
-# multiple website (functions usa_gov_scraping, usa_gov_parser etc)
-# further development has been devotes to improving these functions
-# Deployed checking the address with an API http://geocoder.ca
-# Credit for the idea goes to Vitalyi Bulah."""
+# Functionality of the crawlring/scraping
+# functions did not change since the last update,
+# however, the function recaptcha_slasher was
+# developed to the first working version and
+# orginized to seperate module (see ML repo).
 
-# Version 1.7.8 from 14-Oct-2019
+# Version 1.7.9 from 08-Nov-2019
 
 import requests
 #from threading import Thread
@@ -20,12 +18,12 @@ import pandas as pd
 from selenium.webdriver.common.proxy import *
 from time import gmtime, strftime, sleep, time
 import pandas as pd
+import numpy as np
 import sqlite3
+import io
+import json
 #from fake_useragent import UserAgent
-#import asyncio
-#from nonocaptcha.solver import Solver
 import re, csv
-#from random import uniform, randint
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
@@ -36,10 +34,11 @@ from selenium.webdriver.common.keys import Keys
 import pyautogui
 import autopy
 import xml.etree.ElementTree as etree
+from recaptcha_slasher import recaptcha_slasher
 #import pickle
 from validator import url_validator
-#from commonregex import CommonRegex
 import pyap
+import cv2
 
 
 abbrs = { 'Alaska':	'AK', 'Alabama': 'AL', 'Arkansas': 'AR', 'Arizona': 'AZ', 'California': 'CA', 
@@ -445,7 +444,6 @@ def whole_parser(link):
 			try:	
 				if soup.title.text == 'Verify real user':
 					print('Houston, we did not pass a robot test.')
-					#sleep(900000)
 				for elem in soup.find_all('a'):
 
 					url = str(elem.get('href'))
@@ -506,21 +504,12 @@ def homeflock_parser (link, i):
 	else:
 		if soup.title.text == 'Verify real user':
 			print('recaptcha_slasher is called out of the loop')
-			recaptcha_slasher(i)
+			recaptcha_slasher(i, driver)
 
-	#except Exception:
-	#	print('check')
-	#	pass
-
-	#finally:
-	#	driver.quit()
 	frame = frame.drop_duplicates(subset = 'LinkOnPlatform', keep = 'last')
 	frame.to_csv('./homeflock_profiles.csv', mode = 'a', header = False)
 	print('done with link', link)
 	driver.quit()
-
-	#driver.quit()
-	#sleep(305)
 
 
 def getDataHomeflock(link, i):
@@ -541,7 +530,7 @@ def getDataHomeflock(link, i):
 				address = soup.find(class_ = 'profile-city').text
 				name = soup.find(itemprop='name').text.strip()
 			except Exception:
-				recaptcha_slasher(i)
+				recaptcha_slasher(i, driver)
 				continue
 
 			for each in soup.find_all(class_ = 'row text'):
@@ -613,13 +602,11 @@ def getDataHA(link):
 	options.add_argument('headless')
 
 	driver = webdriver.Chrome(executable_path = './chromedriver', options = options)
-	#link = frame['LinkOnBBB']
 
 	try:
 		try:
 			driver.get(link)
 		except:
-			#proxy_num += 1
 			driver.get(link)
 		soup = BeautifulSoup(driver.page_source, 'lxml')
 		data_frame = pd.Series()
@@ -680,10 +667,6 @@ def getDataHA(link):
 		print(data_frame)
 		new_frame = new_frame.append(data_frame, ignore_index = True)
 		new_frame.to_csv('/home/val/HomeAdvisor.csv', mode='a', header = False)
-		#new_frame.apply(fill_data_base, axis = 1)
-		#fill_data_base(new_frame)
-		#new_frame.to_csv('/home/val/insurance-agency.csv', mode='a', header = False)
-		#data_frame.to_csv('restaurants_fin_3.csv')
 		driver.quit()
 
 	except Exception as e:
@@ -692,32 +675,13 @@ def getDataHA(link):
 
 	return new_frame
 
-def recaptcha_slasher(i):
-	browser = pyautogui.position(x=800, y=300)
-	pyautogui.leftClick(browser)
-	pyautogui.hotkey('f5')
-	sleep(5)
-	checkbox = pyautogui.position(x=516, y=206)
-	pyautogui.leftClick(checkbox)
-	sleep(5)
-	image = autopy.bitmap.capture_screen()
-	path = '/home/val/google_recaptcha_set/captured_{}.png'.format(i)
-	image.save(path)
-	submit = pyautogui.position(x=518, y=285)
-	pyautogui.leftClick(submit)
-
-
-
-
 def trustpilot_cats(link):
 	categories = {}
 	r = requests.get(link)
 	soup = BeautifulSoup(r.text, 'lxml')
 	for each in soup.find_all(class_='category-object'):
 		subcats = []
-		#print(each)
 		for sub_cat in each.findChildren():
-			#each.text.strip()+':'+sub_cat.text.strip())
 			subcats.append(sub_cat.text.strip())
 		categories[str(each.text.strip())] = subcats
 
@@ -738,15 +702,12 @@ def trustpilot_parser(link):
 	domain = 'https://www.trustpilot.com'
 	frame = pd.DataFrame(columns=['CategoryLink', 'ProfileLink', 'Website'])
 	dict_biz = {}
-	#categories = {}
 	options = webdriver.ChromeOptions()
 	options.add_argument('headless')
 	driver = webdriver.Chrome(executable_path = './chromedriver', options = options)
 	driver.get(link)
-	#print(str(r.text.find('category-business-card card')))
 	soup = BeautifulSoup(driver.page_source, 'lxml')
 	for each in soup.find_all(class_='category-business-card card'):
-		#print(each.get('href'))
 		dict_biz['CategoryLink'] = link
 		dict_biz['ProfileLink'] = domain+each.get('href')
 		print(domain+each.get('href'))
@@ -863,8 +824,6 @@ def usa_gov_parser():
 				pass
 
 
-
-
 	for city in cities:
 		link = 'https://www.google.com/search?ei=EF-TXY6fI4fj-gS-nbLgDQ&q=file+a+consumer+complaint+{}&oq=file+a+consumer+complaint+{}&gs_l=psy-ab.3..33i299j33i160.6315.12568..12837...0.2..0.546.3158.2-3j4j1j1......0....1..gws-wiz.......0i71j0j0i22i30j33i22i29i30.ob7oBxmCT2c&ved=0ahUKEwiO58qqn_vkAhWHsZ4KHb6ODNwQ4dUDCAs&uact=5'.format(city, city)
 		driver.get(link)
@@ -885,13 +844,6 @@ def usa_gov_parser():
 
 	file.close()
 	driver.guit()
-
-		#if 'general attorney' in soup.get_text().lower() or 'attorney general' in soup.get_text().lower() or 'consumer protection' in soup.get_text().lower() or 'file complaint' in soup.get_text().lower() 'file a complaint' in soup.get_text().lower():
-		#	if each.get('href').startswith('http') or each.get('href').startswith('https') or each.get('href').startswith('www'):
-				#print(each.get('href'))
-				#with open(file+'_attorneys', 'a') as f:
-				#	f.write(each.get('href')+'\n')
-				#	print(each.get('href'))
 
 
 def usa_gov_scraper(link):
@@ -915,70 +867,54 @@ def usa_gov_scraper(link):
 	contacts_keywords = ['contacts', 'contact', 'phone', 'about', 'address', 'connect', 'location']
 
 	company_dict = {}
-	#company_dict['form_link'] = link
 	try:
 		print('Scraping... ', link)
 		driver.get(link)
-		#r = requests.get(link)
 	except Exception as e:
 		try:
 			if link.startswith('www.'):
 				driver.get('http://'+link)
-				#r = requests.get('http://'+link)
 			elif link.startswith('http://'):
 				with open('failed_links.csv', 'a') as file:
 					file.write(link+'\n')
-					#driver.quit()
 					return
 			else:
 				driver.get('http://www.'+link)
-				#r = requests.get('http://www.'+link)
 		except Exception:
 			with open('failed_links.csv', 'a') as file:
 				file.write(link+'\n')
 			return
 
-
-		#print('Invalid url:', link)
-
-
 	company_dict['link'] = link
 
 	soup = BeautifulSoup(driver.page_source, 'lxml')
-	#soup = BeautifulSoup(r.text, 'lxml')
 
 	try:
 		company_dict['name'] = soup.find('meta', attrs={'property':'og:site_name'}).get('content').strip()
 	except Exception as e:
-		#print('Exception 4:', e)
 		try:
 			for each in soup.find('title').text.strip().split('-'):
 				if 'home' not in each.lower() and 'homepage' not in each.lower() and 'home page' not in each.lower():
 					company_dict['name'] = each
 		except Exception as e:
-			#print('Exception 5:', e)
 			try:
 				for each in soup.find('title').text.strip().split('|'):
 					if 'home' not in each.lower() and 'homepage' not in each.lower() and 'home page' not in each.lower():
 						company_dict['name'] = each.strip()
 			except Exception as e:
-				#print('Exception 6:', e)
 				company_dict['name'] = ''
 
 	try:
 		company_dict['meta_title'] = soup.find('meta', attrs={'property':'og:title'}).get('content').strip()
 	except Exception as e:
-		#print('Exception 7:', e)
 		company_dict['meta_title'] = ''
 
 	try:
 		company_dict['meta_description'] = soup.find('meta', attrs={'property':'og:description'}).get('content').strip()
 	except Exception as e:
-		#print('Exception 8:', e)
 		try:
 			company_dict['meta_description'] = soup.find('meta', attrs={'name':'description'}).get('content').strip()
 		except Exception as e:
-			#print('Exception 9:', e)
 			company_dict['meta_description'] = ''
 	
 	try:
@@ -1018,7 +954,6 @@ def usa_gov_scraper(link):
 		assert len(company_dict['address'])
 
 	except Exception as e:
-		#print('Exception 10:', e)
 
 		for link in soup.find_all('a'):
 			try:
@@ -1028,13 +963,11 @@ def usa_gov_scraper(link):
 						break
 					if word in contact_link:
 						driver.get(link.get('href'))
-						#r = requests.get(link.get('href'))
 						soup = BeautifulSoup(driver.page_source, 'lxml')
 						company_dict = usa_gov_scraping_helper(soup, company_dict)
 
 						break
 			except Exception as e:
-				#print('Exception 11:', e)
 				pass
 
 	for col in columns:
@@ -1042,18 +975,13 @@ def usa_gov_scraper(link):
 			if col == 'address':
 				continue
 			assert len(company_dict[col]) > 0
-			#company_dict[col] = company_dict[col].strip()
 		except Exception as e:
-			#print('Exception 12:', e)
 			company_dict[col] = ''
 
 	print(company_dict)
-	#frame = frame.append()
 	frame = frame.append(company_dict, ignore_index=True)
 	frame.to_csv('all_gov_sites_data_1.csv', mode='a', header=False)
 
-	#if driver:
-		#driver.quit()
 	return company_dict
 
 
@@ -1112,13 +1040,6 @@ def usa_gov_scraping_helper(soup, company_dict):
 						except Exception:
 							company_dict['form_link'] = ''
 
-		#if company_dict['form_link'] == '':
-			#for class_ in each.get('class'):
-				#if 'search' in class_:
-					#elem = driver.find_element_by_class_name(class_)
-					#elem.click()
-					#sleep(5)
-
 
 		if each.text.strip().startswith('<') or each.text.strip().startswith('#') or each.text.strip().startswith('{') or '{"@' in each.text or '{"' in each.text or 'jQuery' in each.text or each.name == 'script':
 			continue
@@ -1128,13 +1049,10 @@ def usa_gov_scraping_helper(soup, company_dict):
 				if len((''.join([ word[0] for word in company_dict['name'].split(' ')])).upper()) >= 3 and len((''.join([ word[0] for word in company_dict['name'].split(' ')])).upper()) <= 6:
 					company_dict['abbreviation'] = ''.join([ word[0] for word in company_dict['name'].split(' ')])
 		except Exception as e:
-			#print('No abbreviations in the name found:', e)
 			pass
 
 	try:
 		assert len(company_dict['address']) > 0
-	except Exception as e:
-		#print('Exception 19', e)
 		try:
 			""" The idea to check the address with an API http://geocoder.ca
 				should be attributed to Vitalyi Bulah."""
@@ -1210,27 +1128,3 @@ def usa_gov_scraping_helper(soup, company_dict):
 			company_dict['email'] = ''
 
 	return company_dict
-
-"""	try:
-		assert len(company_dict['form_link']) > 0
-
-	except Exception:
-		for each in soup.find_all():
-			try:
-				for class_ in each.get('class'):
-					if 'search' in class_.lower():
-						elem = driver.find_element_by_class_name(class_)
-						elem.click()
-						sleep(2)
-						elem.send_keys('file complaint')
-						elem.send_keys(Keys.RETURN)
-						sleep(4)
-						soup = BeautifulSoup(driver.page_source, 'lxml')
-						for tag in soup.find_all():
-							for result in tag.get('class'):
-								if 'result' in result.lower():
-									company_dict['form_link'] = result.get('href')
-									return company_dict
-
-			except Exception:
-				pass"""
