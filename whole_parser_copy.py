@@ -1,3 +1,13 @@
+#!/usr/bin/env python3
+# Developed by Valentyna Fihurska for wiserbrand.com
+
+# Update from 19-Dec-2019
+# Crawler works by crawling over the links of the giving website
+# (within one domain); in the future might be designed to
+# parse requested information from crawled links
+# Current elaborations: 1. setting the pipeline to
+# switch between requests object and webdriver as needed
+
 import os
 import sys
 from threading import Thread
@@ -9,13 +19,16 @@ from time import gmtime, strftime, sleep
 import pandas as pd
 import sqlite3
 import time
+#import requests
 
 #project = str(input('What web resource do you want to crawl? (name)'))
 project = 'homestars'
 placement = os.path.join(os.getcwd(), project)
 #url = input('Could you give it`s web address, please?')
 url = 'www.homestars.com'
-threads_amount = 2
+# temporary work around until I`ll figure out why threads work
+# with the same link :)
+threads_amount = 1
 to_crawl_file = os.path.join(project, (project+'_to_crawl.txt'))
 crawled_file = os.path.join(project, (project+'_crawled.txt'))
 
@@ -69,10 +82,10 @@ def file_to_list(name):
     return results
 
 def list_to_file(links, file_name):
-    with open(file_name,'a') as f:
-        for l in links: 
-            #print(l)   
-            f.write(l+'\n')
+    with open(file_name,'w') as f:
+        for l in links:
+        	if len(l) > 0:
+        		f.write(l.strip()+'\n')
                
 def get_domain_name(link):
     #link = 'www.homeadvisor.com'
@@ -95,40 +108,39 @@ def get_domain_name(link):
  
         
 def crawl():
-    
-	while len(q)>0:
-#while i < 40:
-	threads = []
-		for i in range(threads_amount):
-			t = Thread(target = homeflock_parser, args=(queue[i], to_crawl_file, crawled_file))
-			print('thread ', i, ' has been created')
-		#frame.drop
-			threads.append(t)
-			t.start()
-		for t in threads:
-			t.join()
-		#sleep(30)
-		del q[:(threads_amount-1)]
+    queue = file_to_list(to_crawl_file)
+    while len(queue)>0:
+        queue = file_to_list(to_crawl_file)
+        print('Queue:', queue)
+        threads = []
+        try:
+            for i in range(threads_amount):
+                t = Thread(target = whole_parser, args=(queue[i], to_crawl_file, crawled_file))
+                print('thread ', i, ' has been created')
+                threads.append(t)
+                t.start()
+                for t in threads:
+                    t.join()
 
-    """threads = []
-    for i in range(threads_amount):
-    	if i > 0 and i <= threads_amount:
-    		time.sleep(5*i)
+            del queue[:(threads_amount-1)]
+            list_to_file(queue, to_crawl_file)
+            #print('*')
 
-    	queue = file_to_list(to_crawl_file)
-    	#print('queue: ', queue)
-    	parsed = file_to_list(crawled_file)
-    	#print('parsed: ', parsed)
-    	t = Thread(target = whole_parser, args=(queue[0], to_crawl_file, crawled_file))
-    	print('thread ', i, ' has been created')
-    	if queue[0] not in parsed:
-    		append_to_file(crawled_file, queue[0])
-    	threads.append(t)
-    	t.start()
-    	write_file(crawled_file, queue[0])
-    	del queue[0]
-    	for t in threads:
-    		t.join()"""
+        except Exception:
+            pass
+
+
+def check_the_link_to_crawl(link, to_crawl_list):
+
+	if link in to_crawl_list:
+		return True
+	return False
+
+def check_the_link_crawled(link, crawled_list):
+
+	if link in crawled_file:
+		return True
+	return False
             
 def whole_parser(link, to_crawl_file, crawled_file):
     
@@ -141,15 +153,15 @@ def whole_parser(link, to_crawl_file, crawled_file):
         driver.get(link)
     except Exception as e:
         print('***Exception: ', link)
+    to_crawl_list = file_to_list(to_crawl_file)
+    crawled_list = file_to_list(to_crawl_file)
     soup = BeautifulSoup(driver.page_source, 'lxml')
     for elem in soup.find_all('a'):
-        to_crawl_list = file_to_list(to_crawl_file)
-        crawled_list = file_to_list(to_crawl_file)
         url = elem.get('href')
         #if domain in url:
         #if 'facebook' or 'twitter' or 'youtube' or 'pintrest' or 'instagram' or 'linkedin' in url:
             #continue
-        if url.startswith('#'):
+        if url.startswith('#') or url.startswith('//'):
             continue
         if url.startswith('//www.') or url.startswith('//http:') or url.startswith('//https:'):
             continue
@@ -164,38 +176,26 @@ def whole_parser(link, to_crawl_file, crawled_file):
                 pass
 
             parsed_link = 'https://'+domain+url
-        
-        if parsed_link in to_crawl_list:
-            print(parsed_link, ' in to_crawl_list')
-            continue
-            
-        else:
-            to_crawl_list.append(parsed_link)
-            print(parsed_link, ' appended to_crawl_list')
-            #append_to_file(to_crawl_file, parsed_link)
-
-        
-        if parsed_link in crawled_list:
-            print(parsed_link, ' in crawled_list')
-            continue
-        else:
-            print(parsed_link, ' appended to_crawl_list')
-            #append_to_file(crawled_file, parsed_link)
-            crawled_list.append(parsed_link)
-
-        del to_crawl_list[0]
-
-        print(parsed_link)
-        delete_file_contents(to_crawl_file)
-        delete_file_contents(crawled_file)
-        list_to_file(to_crawl_list, to_crawl_file)
-        list_to_file(crawled_list, crawled_file)
-                           
+            print(parsed_link)
+        if check_the_link_to_crawl(parsed_link, to_crawl_file) == False and check_the_link_crawled(link, crawled_list) == False:
+        	to_crawl_list.append(parsed_link)
+            #continue
+       	#else:
+       		#to_crawl_list.appended(parsed_link)
     driver.quit()
-    
+
+    if check_the_link_crawled(link, crawled_list) == False:
+    	crawled_list.append(parsed_link)
+
+
+    print(parsed_link)
+
+    list_to_file(to_crawl_list, to_crawl_file)
+    list_to_file(crawled_list, crawled_file)
+        
     
 make_a_dir(project)
 write_file(to_crawl_file, 'https://'+get_domain_name(url))
 write_file(crawled_file, '')
-#crawl()
-whole_parser(file_to_list(to_crawl_file)[0], to_crawl_file, crawled_file)
+crawl()
+#whole_parser(file_to_list(to_crawl_file)[0], to_crawl_file, crawled_file)
