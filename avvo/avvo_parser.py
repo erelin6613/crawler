@@ -2,10 +2,11 @@ import os
 import sys
 from threading import Thread
 from bs4 import BeautifulSoup
-#import requests
+import requests
 import pandas as pd
 from selenium import webdriver
-from selenium.webdriver.common.proxy import *
+#from selenium.webdriver.common.proxy import *
+from selenium.webdriver.common.proxy import Proxy, ProxyType
 from time import gmtime, strftime, sleep
 import pandas as pd
 #import sqlite3
@@ -13,56 +14,40 @@ import time
 import re
 from queue import Queue
 from fake_useragent import UserAgent
+from tqdm import tqdm
 
+#test_proxy = '138.68.24.145:8080'
 ua = UserAgent()
-
+ua.update()
 ua_list = [ua.ie, ua.msie, ua.chrome, ua.google, 
 			ua.firefox, ua.ff, ua.safari]
-
-#ua = UserAgent(family='chrome')
-#print(ua.family)
-
 blacklist = ['youtube', 'facebook', 'linkedin',
 			'internetbrands', 'twitter', 'pinterest',
 			'avvo']
-
 not_active = 'This attorney is not active on Avvo.'
 pseudomin = 'also known as'
 
 classes = {'phone': 'js-v-phone-replace-text', 
 			'address': 'js-context js-address col-xs-12'}
-
 website_regex = r'www\.[0-9a-zA-Z]*\.[a-zA-Z]{2,3}'
 
-
-#link = 'https://www.avvo.com/attorneys/60606-il-thomas-hyland-4258221.html'
-#options = webdriver.ChromeOptions()
-#options.add_argument('headless')
-#driver = webdriver.Chrome(executable_path = './chromedriver', options = options)
-
-info = dict()
+link = 'https://www.avvo.com/attorneys/10006-ny-thomas-sciacca-4074421.html'
 
 def scarpe_info(link, fake_user=None):
 
+	info = dict()
 	options = webdriver.ChromeOptions()
 	
 	if not fake_user:
 		fake_user = ua.safari
-	#fake_user = 'Opera/9.80 (X11; Linux i686; U; ru) Presto/2.8.131 Version/11.11'
-	#fake_user = 'Chrome/42.0.2311.135'
-	#fake_user = ua['google chrome']
-	#print(fake_user)
 	options.add_argument("user-agent={fake_user}")
 
 	options.add_argument('headless')
-	driver = webdriver.Chrome(executable_path = './chromedriver', options = options)
+	driver = webdriver.Chrome(executable_path = './chromedriver', options = options) 
 	driver.execute_script("return navigator.userAgent")
 
 	try:
 		driver.get(link+'#contact') #headers={'User-Agent': ua})
-
-		#r = requests.get(link+'#contact', headers={'User-Agent': str(ua.family[0])})
-		#print(r.status_code)
 	except Exception as e:
 		print('Link raised exaption:', link, ':', e)
 		#print('raw html')
@@ -115,7 +100,9 @@ def scarpe_info(link, fake_user=None):
 					info['phone'] = phones[0].get_text()
 					info['phone'] = None
 
-			if not info['phone']:
+			try:
+				assert len(info['phone']) > 0
+			except Exception:
 				info['phone'] = None
 				info['fax'] = None
 		if pseudomin in soup.get_text():
@@ -126,17 +113,17 @@ def scarpe_info(link, fake_user=None):
 		else:
 			info['pseudomin'] = None
 
-		for each in soup.find_all('a'):
-			try:
-				site = re.search(website_regex, each.get('href'))
-				if site:
-					site = site.group(0)
-					if site.split('.')[1] in blacklist:
+		for each in soup.find_all(class_='profile-card'):
+			for link in each.find_all(class_='text-truncate'):
+				try:
+					if link.text.split('.')[-2] in ''.join(blacklist):
 						continue
-					info['website'] = site
-
-			except Exception as e:
-				pass
+					else:
+						info['website'] = link.text
+						break
+				except Exception as e:
+					#print(e)
+					pass
 		try:
 			assert len(info['website']) > 0
 		except Exception as e:
@@ -144,18 +131,20 @@ def scarpe_info(link, fake_user=None):
 		#print(info)
 		driver.quit()
 		return info
-	except Exception:
-		#print('Raw source: \n', driver.page_source)
-		print('Link does not exist:', link)
+	except Exception as e:
+		print('Link does not exist:', link, e)
 
 def scrape_all(link, filename):
-	info = scarpe_info(link, ua_list[-1])
-	#info['url'] = link
+	info = scarpe_info(link, ua_list[-2])
 	if info:
-		if info['name'] == 'One more step':
-			print('well we are blocked')
+		count_nans = len([x for x in info.values() if x is None])
+		if count_nans > 6:
+		#if info['name'] == 'One more step':
+			print('seems like we are blocked')
 			#del ua_list[0]
-			exit()
+			return
+			#time.sleep(700)
+			#return
 		df = pd.DataFrame()
 		df = df.append(info, ignore_index=True)
 		#count_nans = [x for x in info.values() if x is None]
@@ -165,24 +154,26 @@ def scrape_all(link, filename):
 	#return df
 
 if __name__ == '__main__':
-	filename = 'avvo_profiles_2.csv'
+
+	filename = 'avvo_profiles_1.csv'
 	df = pd.read_csv(filename)
 	results = pd.DataFrame()
-	#for each in df['url']:
-		#results = results.append(scarpe_info(each), ignore_index=True)
-		#print(results.tail())
-	#results.to_csv(filename[:-4]+'results'+'.csv')
+
+	q = [link for link in df['url']]
+	print(filename)
 
 	threads_amount = 2
 
-	q = [link for link in df['url']]
+	#for each in tqdm(q):
+		#scrape_all(each, filename)
+
 
 	while len(q) > 0:
 		threads = []
 		for i in range(threads_amount):
 			#print(filename)
-			t = Thread(target = scrape_all, args=(q[0], filename))
 			print('scraping:', q[0])
+			t = Thread(target = scrape_all, args=(q[0], filename))
 			del q[0]
 			#print('thread ', i, ' has been created')
 			#frame.drop
