@@ -15,12 +15,10 @@ import re
 from queue import Queue
 from fake_useragent import UserAgent
 from tqdm import tqdm
-import usaddress
-#from ..space_functions_sendbox import abbrs, cities
 
-#test_proxy = '104.144.81.92:2344'
+#test_proxy = '138.68.24.145:8080'
 ua = UserAgent()
-#ua.update()
+ua.update()
 ua_list = [ua.ie, ua.msie, ua.chrome, ua.google, 
 			ua.firefox, ua.ff, ua.safari]
 blacklist = ['youtube', 'facebook', 'linkedin',
@@ -33,39 +31,7 @@ classes = {'phone': 'js-v-phone-replace-text',
 			'address': 'js-context js-address col-xs-12'}
 website_regex = r'www\.[0-9a-zA-Z]*\.[a-zA-Z]{2,3}'
 
-link = 'https://www.avvo.com/attorneys/10020-ny-timothy-plunkett-1787474.html'
-
-def get_city_state(string):
-
-	address = usaddress.parse(string)
-	#print(address)
-
-	str_num, zip_code = None, None
-	state, city, street = '', '', ''
-
-	for tup in address:
-		if tup[1] == 'StateName':
-			state += tup[0]+' '
-		if tup[1] == 'PlaceName':
-			city += tup[0]+' '
-		if tup[1] == 'AddressNumber':
-			street = tup[0] + ' '
-		if tup[1] == 'OccupancyIdentifier':
-			str_num = tup[0]
-		if tup[1] == 'StreetNamePreType':
-			street += tup[0]+' '
-		if tup[1] == 'StreetName':
-			street += tup[0]+' '
-		if tup[1] == 'ZipCode':
-			zip_code = tup[0]
-	try:
-		assert len(zip_code.split('-')) > 1
-		zip_code = zip_code.split('-')[0]
-	except Exception:
-		pass
-
-	return (street, str_num, city, state, zip_code)
-
+link = 'https://www.avvo.com/attorneys/10006-ny-thomas-sciacca-4074421.html'
 
 def scarpe_info(link, fake_user=None):
 
@@ -75,8 +41,12 @@ def scarpe_info(link, fake_user=None):
 	if not fake_user:
 		fake_user = ua.safari
 	options.add_argument("user-agent={fake_user}")
-
-	options.add_argument('headless')
+	URL = 'http://localhost:4444/wd/hub'
+	options.add_argument('--headless')
+	options.add_argument("--no-sandbox")
+	options.add_argument("--disable-gpu")
+	options.add_argument("--remote-debugin-port=9222")
+	options.add_argument("--screen-size=1200x800")
 	driver = webdriver.Chrome(executable_path = './chromedriver', options = options) 
 	driver.execute_script("return navigator.userAgent")
 
@@ -84,6 +54,7 @@ def scarpe_info(link, fake_user=None):
 		driver.get(link+'#contact') #headers={'User-Agent': ua})
 	except Exception as e:
 		print('Link raised exaption:', link, ':', e)
+		#print('raw html')
 		driver.quit()
 		return None
 	try:
@@ -92,8 +63,9 @@ def scarpe_info(link, fake_user=None):
 		for script in soup(["script", "style"]):
 			script.extract()
 		if not_active in soup.get_text():
-			return False
-			
+			info['active'] = 0
+		else:
+			info['active'] = 1
 		info['name'] = soup.find('h1').get_text()
 		try:
 			info['phone'] = soup.find(attrs={'class': 'hidden', 'itemprop': 'telephone'}).get_text()
@@ -111,6 +83,7 @@ def scarpe_info(link, fake_user=None):
 			info['company_name'] = info['address'].find(attrs={'itemprop':'name'}).get_text()
 		except Exception:
 			info['company_name'] = None
+		#info['address'] = info['address'].get_text()
 		if info['address']:
 			addr_str = ''
 			for each in info['address']:
@@ -119,12 +92,6 @@ def scarpe_info(link, fake_user=None):
 				except Exception:
 					pass
 			info['address'] = addr_str
-			try:
-				#(street, str_num, city, state, zip_code)
-				info['street'], info['streetnumber'], info['city'], \
-				info['state'], info['zip_code'] = get_city_state(addr_str)
-			except Exception as e:
-				print(e)
 		try:
 			assert len(info['phone'])>0
 		except Exception:
@@ -159,29 +126,36 @@ def scarpe_info(link, fake_user=None):
 						info['website'] = link.text
 						break
 				except Exception as e:
+					#print(e)
 					pass
 		try:
 			assert len(info['website']) > 0
 		except Exception as e:
 			info['website'] = None
+		#print(info)
 		driver.quit()
 		return info
 	except Exception as e:
 		print('Link does not exist:', link, e)
 
 def scrape_all(link, filename):
-	info = scarpe_info(link, ua_list[2])
-	if info == False:
-		return
+	info = scarpe_info(link, ua_list[3])
 	if info:
 		count_nans = len([x for x in info.values() if x is None])
+		#if count_nans > 6:
 		if info['name'] == 'One more step':
 			print('seems like we are blocked')
-			exit()
+			#del ua_list[0]
 			return
+			#time.sleep(700)
+			#return
 		df = pd.DataFrame()
 		df = df.append(info, ignore_index=True)
-		df.to_csv(filename.split('.')[0]+'_results_extended.csv', mode='a', header=False)
+		#count_nans = [x for x in info.values() if x is None]
+		#if len(count_nans) > 
+		print(df.tail())
+		df.to_csv(filename.split('.')[0]+'_results.csv', mode='a', header=False)
+	#return df
 
 if __name__ == '__main__':
 
@@ -194,10 +168,10 @@ if __name__ == '__main__':
 
 	threads_amount = 2
 
-	for each in tqdm(q):
-		scrape_all(each, filename)
+	#for each in tqdm(q):
+		#scrape_all(each, filename)
 
-"""
+
 	while len(q) > 0:
 		threads = []
 		for i in range(threads_amount):
@@ -213,4 +187,3 @@ if __name__ == '__main__':
 			t.join()
 			#sleep(30)
 		print(len(q), ' links to go')
-"""
