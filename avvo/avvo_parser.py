@@ -77,6 +77,7 @@ def scarpe_info(link, fake_user=None):
 	options.add_argument("user-agent={fake_user}")
 
 	options.add_argument('headless')
+	options.add_argument('no-gpu')
 	driver = webdriver.Chrome(executable_path = './chromedriver', options = options) 
 	driver.execute_script("return navigator.userAgent")
 
@@ -170,7 +171,7 @@ def scarpe_info(link, fake_user=None):
 		print('Link does not exist:', link, e)
 
 def scrape_all(link, filename):
-	info = scarpe_info(link, ua_list[2])
+	info = scarpe_info(link, ua_list[-1])
 	if info == False:
 		return
 	if info:
@@ -196,7 +197,6 @@ if __name__ == '__main__':
 
 	for each in tqdm(q):
 		scrape_all(each, filename)
-
 """
 	while len(q) > 0:
 		threads = []
@@ -209,6 +209,7 @@ if __name__ == '__main__':
 			#frame.drop
 			threads.append(t)
 			t.start()
+
 		for t in threads:
 			t.join()
 			#sleep(30)
