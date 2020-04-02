@@ -85,6 +85,7 @@ def scarpe_info(link, fake_user=None):
 		driver.get(link+'#contact') #headers={'User-Agent': ua})
 	except Exception as e:
 		print('Link raised exaption:', link, ':', e)
+		driver.close()
 		driver.quit()
 		return None
 	try:
@@ -93,6 +94,8 @@ def scarpe_info(link, fake_user=None):
 		for script in soup(["script", "style"]):
 			script.extract()
 		if not_active in soup.get_text():
+			driver.close()
+			driver.quit()
 			return False
 			
 		info['name'] = soup.find('h1').get_text()
@@ -165,10 +168,14 @@ def scarpe_info(link, fake_user=None):
 			assert len(info['website']) > 0
 		except Exception as e:
 			info['website'] = None
+		driver.close()
 		driver.quit()
 		return info
 	except Exception as e:
 		print('Link does not exist:', link, e)
+		if driver:
+			driver.close()
+			driver.quit()
 
 def scrape_all(link, filename):
 	info = scarpe_info(link, ua_list[-3])
