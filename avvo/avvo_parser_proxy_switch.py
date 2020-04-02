@@ -5,22 +5,17 @@ from bs4 import BeautifulSoup
 import requests
 import pandas as pd
 from selenium import webdriver
-#from selenium.webdriver.common.proxy import *
 from selenium.webdriver.common.proxy import Proxy, ProxyType
 from time import gmtime, strftime, sleep
 import pandas as pd
-#import sqlite3
 import time
 import re
 from queue import Queue
 from fake_useragent import UserAgent
 from tqdm import tqdm
 import usaddress
-#from ..space_functions_sendbox import abbrs, cities
 
-#test_proxy = '104.144.81.92:2344'
 ua = UserAgent()
-#ua.update()
 ua_list = [ua.ie, ua.msie, ua.chrome, ua.google, 
 			ua.firefox, ua.ff, ua.safari]
 blacklist = ['youtube', 'facebook', 'linkedin',
@@ -38,7 +33,6 @@ link = 'https://www.avvo.com/attorneys/10020-ny-timothy-plunkett-1787474.html'
 def get_city_state(string):
 
 	address = usaddress.parse(string)
-	#print(address)
 
 	str_num, zip_code = None, None
 	state, city, street = '', '', ''
@@ -121,7 +115,6 @@ def scarpe_info(link, fake_user=None):
 					pass
 			info['address'] = addr_str
 			try:
-				#(street, str_num, city, state, zip_code)
 				info['street'], info['streetnumber'], info['city'], \
 				info['state'], info['zip_code'] = get_city_state(addr_str)
 			except Exception as e:
@@ -178,7 +171,17 @@ def scrape_all(link, filename):
 		count_nans = len([x for x in info.values() if x is None])
 		if info['name'] == 'One more step':
 			print('seems like we are blocked')
-			exit()
+			with open('proxies.txt', 'w+') as file:
+				proxies = file.readlines()
+				os.system(f'export http_proxy={proxies[0]}')
+				os.system(f'export https_proxy={proxies[0]}')
+				os.system(f'export ftp_proxy={proxies[0]}')
+				os.system(f'echo "http_proxy={proxies[0]}\n\
+							https_proxy={proxies[0]}\n\
+							ftp_proxy={proxies[0]}" >> /etc/environment')
+				file.write(proxies[1:])
+				os.system('sudo reboot')
+			#exit()
 			return
 		df = pd.DataFrame()
 		df = df.append(info, ignore_index=True)
@@ -195,9 +198,9 @@ if __name__ == '__main__':
 
 	threads_amount = 2
 
-	#for each in tqdm(q):
-		#scrape_all(each, filename)
-
+	for each in tqdm(q):
+		scrape_all(each, filename)
+"""
 	while len(q) > 0:
 		threads = []
 		for i in range(threads_amount):
@@ -214,4 +217,4 @@ if __name__ == '__main__':
 			t.join()
 			#sleep(30)
 		print(len(q), ' links to go')
-
+"""
