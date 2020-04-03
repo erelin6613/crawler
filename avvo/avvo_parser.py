@@ -20,7 +20,7 @@ import usaddress
 
 #test_proxy = '104.144.81.92:2344'
 ua = UserAgent()
-#ua.update()
+ua.update()
 ua_list = [ua.ie, ua.msie, ua.chrome, ua.google, 
 			ua.firefox, ua.ff, ua.safari]
 blacklist = ['youtube', 'facebook', 'linkedin',
@@ -178,15 +178,15 @@ def scarpe_info(link, fake_user=None):
 			driver.quit()
 
 def scrape_all(link, filename):
-	info = scarpe_info(link, ua_list[-3])
+	info = scarpe_info(link, ua_list[0])
 	if info == False:
 		return
 	if info:
 		count_nans = len([x for x in info.values() if x is None])
 		if info['name'] == 'One more step':
 			print('seems like we are blocked')
-			exit()
-			return
+			#exit()
+			return False
 		df = pd.DataFrame()
 		df = df.append(info, ignore_index=True)
 		df.to_csv(filename.split('.')[0]+'_results_extended.csv', mode='a', header=False)
@@ -197,14 +197,18 @@ if __name__ == '__main__':
 	df = pd.read_csv(filename)
 	results = pd.DataFrame()
 
-	q = [link for link in df['url']]
+	#q = [link for link in df['url']]
 	print(filename)
 
 	threads_amount = 2
 
-	#for each in tqdm(q):
-		#scrape_all(each, filename)
-
+	for each in tqdm(df.index):
+		data = scrape_all(df.loc[each, 'url'], filename)
+		if data is False:
+			df = df.loc[each:, :]
+			df.to_csv(filename, index=False) # 24688
+			exit()
+"""
 	while len(q) > 0:
 		threads = []
 		for i in range(threads_amount):
@@ -221,4 +225,5 @@ if __name__ == '__main__':
 			t.join()
 			#sleep(30)
 		print(len(q), ' links to go')
+"""
 

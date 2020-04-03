@@ -189,7 +189,7 @@ def scrape_all(link, filename):
 				file.write(proxies[1:])
 				os.system('sudo reboot')
 			#exit()
-			return
+			return False
 		df = pd.DataFrame()
 		df = df.append(info, ignore_index=True)
 		df.to_csv(filename.split('.')[0]+'_results_extended.csv', mode='a', header=False)
@@ -200,13 +200,17 @@ if __name__ == '__main__':
 	df = pd.read_csv(filename)
 	results = pd.DataFrame()
 
-	q = [link for link in df['url']]
+	#q = [link for link in df['url']]
 	print(filename)
 
 	threads_amount = 2
 
-	for each in tqdm(q):
-		scrape_all(each, filename)
+	for each in tqdm(df.index):
+		data = scrape_all(df.loc[each, 'url'], filename)
+		if data is False:
+			df = df.loc[each:, :]
+			df.to_csv(filename, index=False) # 24688
+			exit()
 """
 	while len(q) > 0:
 		threads = []
