@@ -208,9 +208,14 @@ if __name__ == '__main__':
 	for each in tqdm(df.index):
 		data = scrape_all(df.loc[each, 'url'], filename)
 		if data is False:
-			df = df.loc[each:, :]
-			df.to_csv(filename, index=False) # 24688
-			exit()
+			if each == 0:
+				df = df.loc[each:, :]
+				df.to_csv(filename, index=False) # 24688
+				exit()
+			else:
+				df = df.loc[each-1:, :]
+				df.to_csv(filename, index=False) # 24688
+				exit()	
 """
 	while len(q) > 0:
 		threads = []

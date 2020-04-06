@@ -21,7 +21,7 @@ import usaddress
 #test_proxy = '104.144.81.92:2344'
 ua = UserAgent()
 ua.update()
-ua_list = [ua.ie, ua.msie, ua.chrome, ua.google, 
+ua_list = ['Mozilla/5.0 (Linux; Android 6.0.1; SM-G935S Build/MMB29K; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/55.0.2883.91 Mobile Safari/537.36', ua.ie, ua.msie, ua.chrome, ua.google, 
 			ua.firefox, ua.ff, ua.safari]
 blacklist = ['youtube', 'facebook', 'linkedin',
 			'internetbrands', 'twitter', 'pinterest',
@@ -205,9 +205,14 @@ if __name__ == '__main__':
 	for each in tqdm(df.index):
 		data = scrape_all(df.loc[each, 'url'], filename)
 		if data is False:
-			df = df.loc[each:, :]
-			df.to_csv(filename, index=False) # 24688
-			exit()
+			if each == 0:
+				df = df.loc[each:, :]
+				df.to_csv(filename, index=False) # 24688
+				exit()
+			else:
+				df = df.loc[each-1:, :]
+				df.to_csv(filename, index=False) # 24688
+				exit()				
 """
 	while len(q) > 0:
 		threads = []
