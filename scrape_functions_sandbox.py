@@ -98,8 +98,6 @@ cities = ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix','Philadelph
 			'Woodbridge', 'San Angelo', 'Kenosha', 'Vacaville']
 
 
-
-
 def set_proxy_connection(PROXY):
 # Function to set up a proxy for connection if needed.
 # Currently malfunctions for chromedriver v72.x and v73.x 

@@ -5,20 +5,17 @@ from bs4 import BeautifulSoup
 import requests
 import pandas as pd
 from selenium import webdriver
-#from selenium.webdriver.common.proxy import *
 from selenium.webdriver.common.proxy import Proxy, ProxyType
 from time import gmtime, strftime, sleep
 import pandas as pd
-#import sqlite3
 import time
 import re
 from queue import Queue
 from fake_useragent import UserAgent
 from tqdm import tqdm
 import usaddress
-#from ..space_functions_sendbox import abbrs, cities
+from playsound import playsound
 
-#test_proxy = '104.144.81.92:2344'
 ua = UserAgent()
 ua.update()
 ua_list = ['Mozilla/5.0 (Linux; Android 6.0.1; SM-G935S Build/MMB29K; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/55.0.2883.91 Mobile Safari/537.36', ua.ie, ua.msie, ua.chrome, ua.google, 
@@ -38,7 +35,6 @@ link = 'https://www.avvo.com/attorneys/10020-ny-timothy-plunkett-1787474.html'
 def get_city_state(string):
 
 	address = usaddress.parse(string)
-	#print(address)
 
 	str_num, zip_code = None, None
 	state, city, street = '', '', ''
@@ -82,7 +78,7 @@ def scarpe_info(link, fake_user=None):
 	driver.execute_script("return navigator.userAgent")
 
 	try:
-		driver.get(link+'#contact') #headers={'User-Agent': ua})
+		driver.get(link+'#contact')
 	except Exception as e:
 		print('Link raised exaption:', link, ':', e)
 		driver.close()
@@ -124,7 +120,6 @@ def scarpe_info(link, fake_user=None):
 					pass
 			info['address'] = addr_str
 			try:
-				#(street, str_num, city, state, zip_code)
 				info['street'], info['streetnumber'], info['city'], \
 				info['state'], info['zip_code'] = get_city_state(addr_str)
 			except Exception as e:
@@ -154,7 +149,23 @@ def scarpe_info(link, fake_user=None):
 		else:
 			info['pseudomin'] = None
 
+
+
 		for each in soup.find_all(class_='profile-card'):
+			for skill in each.find_all(attrs={'id': 'practice_areas'}):
+				i = 1
+				for one in skill.find_all(class_='js-specialty'):
+					info[f'skill_{i}'] = one.find('a').get_text().split(':')[0]
+					i += 1
+					if i == 7:
+						break
+			for i in range(1, 6):
+				try:
+					assert len(info[f'skill_{i}']) > 0
+					#if info[f'skill_{i}'] == 'Other':
+					#	info[f'skill_{i}'] = None
+				except Exception:
+					info[f'skill_{i}'] = None
 			for link in each.find_all(class_='text-truncate'):
 				try:
 					if link.text.split('.')[-2] in ''.join(blacklist):
@@ -164,6 +175,7 @@ def scarpe_info(link, fake_user=None):
 						break
 				except Exception as e:
 					pass
+
 		try:
 			assert len(info['website']) > 0
 		except Exception as e:
@@ -177,14 +189,20 @@ def scarpe_info(link, fake_user=None):
 			driver.close()
 			driver.quit()
 
+def test():
+
+	link = 'https://www.avvo.com/attorneys/dorothy-santos-1788609.html'
+	print(scarpe_info(link))
+
 def scrape_all(link, filename):
-	info = scarpe_info(link, ua_list[0])
+	info = scarpe_info(link, ua_list[1])
 	if info == False:
 		return
 	if info:
 		count_nans = len([x for x in info.values() if x is None])
 		if info['name'] == 'One more step':
 			print('seems like we are blocked')
+			playsound('deduction.mp3')
 			#exit()
 			return False
 		df = pd.DataFrame()
@@ -193,7 +211,7 @@ def scrape_all(link, filename):
 
 if __name__ == '__main__':
 
-	filename = 'avvo_profiles_1.csv'
+	filename = 'sitemap_profile_30.csv'
 	df = pd.read_csv(filename)
 	results = pd.DataFrame()
 
@@ -207,12 +225,15 @@ if __name__ == '__main__':
 		if data is False:
 			if each == 0:
 				df = df.loc[each:, :]
-				df.to_csv(filename, index=False) # 24688
+				df.to_csv(filename, index=False)
 				exit()
 			else:
 				df = df.loc[each-1:, :]
-				df.to_csv(filename, index=False) # 24688
-				exit()				
+				df.to_csv(filename, index=False)
+				exit()
+
+	print('done!')
+	playsound('deduction.mp3')			
 """
 	while len(q) > 0:
 		threads = []
