@@ -14,9 +14,11 @@ from queue import Queue
 from fake_useragent import UserAgent
 from tqdm import tqdm
 import usaddress
+#from playsound import playsound
 
 ua = UserAgent()
-ua_list = [ua.ie, ua.msie, ua.chrome, ua.google, 
+ua.update()
+ua_list = ['Mozilla/5.0 (Linux; Android 6.0.1; SM-G935S Build/MMB29K; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/55.0.2883.91 Mobile Safari/537.36', ua.ie, ua.msie, ua.chrome, ua.google, 
 			ua.firefox, ua.ff, ua.safari]
 blacklist = ['youtube', 'facebook', 'linkedin',
 			'internetbrands', 'twitter', 'pinterest',
@@ -76,7 +78,7 @@ def scarpe_info(link, fake_user=None):
 	driver.execute_script("return navigator.userAgent")
 
 	try:
-		driver.get(link+'#contact') #headers={'User-Agent': ua})
+		driver.get(link+'#contact')
 	except Exception as e:
 		print('Link raised exaption:', link, ':', e)
 		driver.close()
@@ -147,7 +149,23 @@ def scarpe_info(link, fake_user=None):
 		else:
 			info['pseudomin'] = None
 
+
+
 		for each in soup.find_all(class_='profile-card'):
+			for skill in each.find_all(attrs={'id': 'practice_areas'}):
+				i = 1
+				for one in skill.find_all(class_='js-specialty'):
+					info['skill_{}'.format(i)] = one.find('a').get_text().split(':')[0]
+					i += 1
+					if i == 6:
+						break
+			for i in range(1, 6):
+				try:
+					assert len(info['skill_{}'.format(i)]) > 0
+					#if info[f'skill_{i}'] == 'Other':
+					#	info[f'skill_{i}'] = None
+				except Exception:
+					info['skill_{}'.format(i)] = None
 			for link in each.find_all(class_='text-truncate'):
 				try:
 					if link.text.split('.')[-2] in ''.join(blacklist):
@@ -157,6 +175,7 @@ def scarpe_info(link, fake_user=None):
 						break
 				except Exception as e:
 					pass
+
 		try:
 			assert len(info['website']) > 0
 		except Exception as e:
@@ -170,24 +189,20 @@ def scarpe_info(link, fake_user=None):
 			driver.close()
 			driver.quit()
 
+def test():
+
+	link = 'https://www.avvo.com/attorneys/dorothy-santos-1788609.html'
+	print(scarpe_info(link))
+
 def scrape_all(link, filename):
-	info = scarpe_info(link, ua_list[-3])
+	info = scarpe_info(link, ua_list[1])
 	if info == False:
 		return
 	if info:
 		count_nans = len([x for x in info.values() if x is None])
 		if info['name'] == 'One more step':
 			print('seems like we are blocked')
-			with open('proxies.txt', 'w+') as file:
-				proxies = file.readlines()
-				os.system(f'export http_proxy={proxies[0]}')
-				os.system(f'export https_proxy={proxies[0]}')
-				os.system(f'export ftp_proxy={proxies[0]}')
-				os.system(f'echo "http_proxy={proxies[0]}\n\
-							https_proxy={proxies[0]}\n\
-							ftp_proxy={proxies[0]}" >> /etc/environment')
-				file.write(proxies[1:])
-				os.system('sudo reboot')
+			#playsound('deduction.mp3')
 			#exit()
 			return False
 		df = pd.DataFrame()
@@ -196,7 +211,7 @@ def scrape_all(link, filename):
 
 if __name__ == '__main__':
 
-	filename = 'avvo_profiles_1.csv'
+	filename = 'sitemap_profile_3.csv'
 	df = pd.read_csv(filename)
 	results = pd.DataFrame()
 
@@ -210,12 +225,15 @@ if __name__ == '__main__':
 		if data is False:
 			if each == 0:
 				df = df.loc[each:, :]
-				df.to_csv(filename, index=False) # 24688
+				df.to_csv(filename, index=False)
 				exit()
 			else:
 				df = df.loc[each-1:, :]
-				df.to_csv(filename, index=False) # 24688
-				exit()	
+				df.to_csv(filename, index=False)
+				exit()
+
+	print('done!')
+	playsound('deduction.mp3')			
 """
 	while len(q) > 0:
 		threads = []
@@ -234,3 +252,4 @@ if __name__ == '__main__':
 			#sleep(30)
 		print(len(q), ' links to go')
 """
+

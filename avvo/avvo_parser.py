@@ -155,17 +155,17 @@ def scarpe_info(link, fake_user=None):
 			for skill in each.find_all(attrs={'id': 'practice_areas'}):
 				i = 1
 				for one in skill.find_all(class_='js-specialty'):
-					info[f'skill_{i}'] = one.find('a').get_text().split(':')[0]
+					info['skill_{}'.format(i)] = one.find('a').get_text().split(':')[0]
 					i += 1
-					if i == 7:
+					if i == 6:
 						break
 			for i in range(1, 6):
 				try:
-					assert len(info[f'skill_{i}']) > 0
+					assert len(info['skill_{}'.format(i)]) > 0
 					#if info[f'skill_{i}'] == 'Other':
 					#	info[f'skill_{i}'] = None
 				except Exception:
-					info[f'skill_{i}'] = None
+					info['skill_{}'.format(i)] = None
 			for link in each.find_all(class_='text-truncate'):
 				try:
 					if link.text.split('.')[-2] in ''.join(blacklist):
@@ -211,7 +211,7 @@ def scrape_all(link, filename):
 
 if __name__ == '__main__':
 
-	filename = 'sitemap_profile_30.csv'
+	filename = 'sitemap_profile_27.csv'
 	df = pd.read_csv(filename)
 	results = pd.DataFrame()
 
