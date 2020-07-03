@@ -11,15 +11,16 @@ import pandas as pd
 import time
 import re
 from queue import Queue
-from fake_useragent import UserAgent
+# from fake_useragent import UserAgent
 from tqdm import tqdm
 import usaddress
 from playsound import playsound
 
-ua = UserAgent()
-ua.update()
-ua_list = ['Mozilla/5.0 (Linux; Android 6.0.1; SM-G935S Build/MMB29K; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/55.0.2883.91 Mobile Safari/537.36', ua.ie, ua.msie, ua.chrome, ua.google, 
-			ua.firefox, ua.ff, ua.safari]
+#ua = UserAgent(use_cache_server=False)
+#ua.update()
+
+with open('user_agents.txt') as f:
+	ua_list = f.readlines()
 blacklist = ['youtube', 'facebook', 'linkedin',
 			'internetbrands', 'twitter', 'pinterest',
 			'avvo']
@@ -195,7 +196,7 @@ def test():
 	print(scarpe_info(link))
 
 def scrape_all(link, filename):
-	info = scarpe_info(link, ua_list[1])
+	info = scarpe_info(link, ua_list[-2])
 	if info == False:
 		return
 	if info:
@@ -211,7 +212,7 @@ def scrape_all(link, filename):
 
 if __name__ == '__main__':
 
-	filename = 'sitemap_profile_27.csv'
+	filename = 'sitemap_profile_25.csv'
 	df = pd.read_csv(filename)
 	results = pd.DataFrame()
 
